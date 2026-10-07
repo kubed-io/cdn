@@ -2,6 +2,7 @@
   "name": "@kubed.io/cdn",
   "version": "0.0.1",
   "description": "A theme layer and web components for Grafana panels, loaded by URL from jsDelivr.",
+  "license": "MIT",
   "type": "module",
   "repository": {
     "type": "git",
