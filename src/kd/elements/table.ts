@@ -62,6 +62,9 @@ export class KdTable extends KdElement {
       .nowrap {
         white-space: nowrap;
       }
+      .nowrap .cells {
+        flex-wrap: nowrap;
+      }
       .none {
         padding: 8px 0;
         color: var(--kd-text-dim, inherit);

@@ -137,7 +137,7 @@ export class KdLink extends KdElement {
         align-items: baseline;
         max-width: 100%;
         min-width: 0;
-        overflow-wrap: anywhere;
+        overflow-wrap: break-word;
       }
       a {
         color: var(--kd-link, inherit);
