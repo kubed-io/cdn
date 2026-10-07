@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.2] - 2026-10-07
+
 ### Added
 
 - `@kubed.io/cdn` on npm, served by jsDelivr: TypeScript built into ES modules, one entry per domain.
