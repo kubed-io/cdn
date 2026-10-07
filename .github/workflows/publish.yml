@@ -1,0 +1,248 @@
+name: 🧬 Publish Version
+
+# Manual, intentional release. Each job owns exactly one thing and hands the next
+# a clean input:
+#
+#   test    → node --test. Gates everything: a tag is permanent at jsDelivr, so
+#             the cheapest place to find a broken asset is before one exists.
+#   version → roll CHANGELOG [Unreleased], commit + tag on main. The ONLY job
+#             that writes a file or a tag; it emits the tag consumed downstream.
+#   release → cut the GitHub Release on that tag, its body the rolled notes plus
+#             the jsDelivr URL of every asset at the new tag.
+#
+# There is no build and no package. The tag's tree IS the release: jsDelivr
+# serves any file at any tag of a public repo, cached for a year and immutable,
+# so the moment `version` pushes the tag the assets are live. A file released
+# under a tag can never be replaced — which is the point, and also why the dry
+# run comes first.
+#
+# Run once with push=false (dry run: runs the tests and computes the next
+# version without committing, tagging or releasing anything), then push=true to
+# actually cut the release.
+#
+# Auth for the version job: tokenless WIF → GCP Secret Manager → the kubed.io
+# GitHub App creds. The App token is what lets version-bump commit to main and
+# create the tag.
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Version to bump to
+        default: patch
+        type: choice
+        options:
+        - patch
+        - minor
+        - major
+        - premajor
+        - preminor
+        - prepatch
+      push:
+        description: Push changes and create release
+        default: false
+        type: boolean
+
+# Least privilege by default. `version` and `release` opt up in their own
+# blocks; nothing else writes anything or needs a GCP identity.
+permissions:
+  contents: read
+
+# The assets a release advertises. A new top-level consumer beside grafana/
+# adds its files here so the Release and the summary link them.
+env:
+  CDN: https://cdn.jsdelivr.net/gh/${{ github.repository }}
+  ASSETS: grafana/theme.js grafana/theme.css
+
+jobs:
+
+  test:
+    name: Test
+    uses: ./.github/workflows/test.yml
+
+  version:
+    name: Version
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # commit the rolled CHANGELOG and push the tag to main
+      id-token: write   # GCP workload-identity federation, for the App token
+    # Deliberately NO release-notes output. GitHub refuses to set a job output
+    # whose value contains a registered secret, and the notes always contain
+    # `kubed-io` — every PR link generated for this repo does — which is a
+    # substring of a secret this workflow carries. The runner then logs
+    # "Skip output 'release-notes' since it may contain secret" as a *warning*
+    # and the job goes green with the output silently empty, which is how a
+    # release ships with no notes at all. The notes travel as an artifact
+    # instead: artifact contents are not masked.
+    outputs:
+      tag: ${{ steps.bump.outputs.tag }}
+      version: ${{ steps.bump.outputs.version }}
+    steps:
+
+    - name: Validate Branch
+      if: inputs.push
+      env:
+        REF: ${{ github.ref_name }}
+      run: |
+        if [[ "$REF" != "main" ]]; then
+          echo "::error::Releases can only be pushed from main. Current ref: $REF"
+          exit 1
+        fi
+
+    - name: Authenticate to GCP
+      uses: google-github-actions/auth@v3
+      with:
+        workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+        service_account: github@${{ vars.GCP_PROJECT }}.iam.gserviceaccount.com
+
+    # github-app = kubed.io app creds (JSON: github_app_client_id /
+    # github_app_private_key) pushed by apps/github/providers/gcp.
+    - name: Get secrets
+      id: secrets
+      uses: google-github-actions/get-secretmanager-secrets@v3
+      with:
+        secrets: |-
+          github_app:${{ vars.GCP_PROJECT }}/github-app
+
+    - name: Mint kubed.io app token
+      id: app-token
+      uses: actions/create-github-app-token@v3
+      with:
+        client-id: ${{ fromJson(steps.secrets.outputs.github_app).github_app_client_id }}
+        private-key: ${{ fromJson(steps.secrets.outputs.github_app).github_app_private_key }}
+        # Without a permission-* input the token carries every permission the
+        # App is installed with; a commit and a push need contents alone.
+        permission-contents: write
+
+    - name: Checkout
+      uses: actions/checkout@v7
+      with:
+        fetch-depth: 0
+        token: ${{ steps.app-token.outputs.token }}
+
+    # One call, given the bump keyword. It computes the next version either way
+    # and emits it, so a dry run (push: false) already answers "what would this
+    # be" without a second invocation.
+    - name: Bump Version
+      id: bump
+      uses: duplocloud/version-bump@main
+      with:
+        version: ${{ inputs.action }}
+        push: ${{ inputs.push }}
+        token: ${{ steps.app-token.outputs.token }}
+
+    # A step output is not subject to the job-output secret check, so the notes
+    # are readable here even though they cannot be published as a job output.
+    # Written to a file and carried on as an artifact.
+    #
+    # Empty is a hard failure, not a warning. These notes ARE the release, and
+    # an empty body is exactly the kind of nothing that sails through a green
+    # run and is only noticed by whoever reads the release later.
+    - name: Save the Release Notes
+      env:
+        NOTES: ${{ steps.bump.outputs.release-notes }}
+      run: |
+        mkdir -p notes
+        printf '%s\n' "$NOTES" > notes/release-notes.md
+        if [[ ! -s notes/release-notes.md || -z "$(tr -d '[:space:]' < notes/release-notes.md)" ]]; then
+          echo "::error::The release notes came back empty. The GitHub Release \
+        would have no changelog, so this fails here rather than publishing one."
+          exit 1
+        fi
+        echo "Release notes: $(wc -l < notes/release-notes.md) lines." >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Upload the Release Notes
+      uses: actions/upload-artifact@v7
+      with:
+        name: release-notes
+        path: notes/release-notes.md
+        retention-days: 1
+
+    # On a dry run these are the URLs the tag WOULD serve, which is the thing
+    # to check before a permanent tag exists.
+    - name: Summary
+      env:
+        TAG: ${{ steps.bump.outputs.tag }}
+        PUSH: ${{ inputs.push }}
+      run: |
+        {
+          if [[ "$PUSH" == "true" ]]; then
+            echo "## Tagged \`${TAG}\`"
+          else
+            echo "## Dry run: would tag \`${TAG}\`"
+          fi
+          echo
+          for asset in $ASSETS; do
+            echo "- ${CDN}@${TAG}/${asset}"
+          done
+        } >> "$GITHUB_STEP_SUMMARY"
+
+  release:
+    name: Release
+    needs: version
+    if: inputs.push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # create the GitHub Release on the existing tag
+    steps:
+
+    # No checkout: the release is the tag, which already exists. This job only
+    # writes the Release that describes it.
+    - name: Download the Release Notes
+      uses: actions/download-artifact@v8
+      with:
+        name: release-notes
+        path: notes
+
+    # Composed into a file rather than inlined into the action's `body:`, because
+    # the notes cannot travel as a job output — see the `version` job.
+    - name: Compose the Release Body
+      env:
+        SERVER: ${{ github.server_url }}
+        REPO: ${{ github.repository }}
+        RUN_ID: ${{ github.run_id }}
+        TAG: ${{ needs.version.outputs.tag }}
+      run: |
+        {
+          echo "[![Publish](${SERVER}/${REPO}/actions/workflows/publish.yml/badge.svg)](${SERVER}/${REPO}/actions/runs/${RUN_ID})"
+          echo "[![Test](${SERVER}/${REPO}/actions/workflows/test.yml/badge.svg)](${SERVER}/${REPO}/actions/workflows/test.yml)"
+          echo "[![Quality](${SERVER}/${REPO}/actions/workflows/quality.yml/badge.svg)](${SERVER}/${REPO}/actions/workflows/quality.yml)"
+          echo
+          cat notes/release-notes.md
+          echo
+          echo "## Assets"
+          echo
+          echo "Served by jsDelivr from this tag, immutable:"
+          echo
+          for asset in $ASSETS; do
+            echo "- ${CDN}@${TAG}/${asset}"
+          done
+          echo
+          echo "In a dashboard, set the hidden \`assets\` constant to \`${CDN}@${TAG}\`."
+        } > body.md
+        cat body.md >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v3.0.3
+      with:
+        name: ${{ needs.version.outputs.tag }}
+        tag_name: ${{ needs.version.outputs.tag }}
+        prerelease: ${{ contains(needs.version.outputs.tag, '-') }}
+        body_path: body.md
+
+    - name: Summary
+      env:
+        TAG: ${{ needs.version.outputs.tag }}
+        VERSION: ${{ needs.version.outputs.version }}
+      run: |
+        {
+          echo "## Publish"
+          echo
+          echo "- **Tag**: \`${TAG}\`"
+          echo "- **Version**: \`${VERSION}\`"
+          echo "- **assets**: \`${CDN}@${TAG}\`"
+          for asset in $ASSETS; do
+            echo "- ${CDN}@${TAG}/${asset}"
+          done
+        } >> "$GITHUB_STEP_SUMMARY"
