@@ -107,7 +107,9 @@ The property contract below is this repo's public API and follows semver:
 | `--kd-space` | `spacing(1)` |
 
 Each source path is checked against the live `GrafanaTheme2` during implementation. Any
-path that differs is corrected in this table first.
+path that differs is corrected in this table first. Every path matches Grafana v13.2.1's
+source (`packages/grafana-data/src/themes/`), read on 2026-10-07; the live check is
+Acceptance 2.
 
 **`grafana/theme.css`:**
 - Every selector is scoped under the class `kd`, which the panel's root markup carries. There are no element-only, `*` or `:root` rules.
