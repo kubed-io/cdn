@@ -299,8 +299,9 @@ dashboard's `assets` at it. Pre-release versions are as immutable as any other.
 - Dr K publishes the first version (`0.0.1`, an empty placeholder or
   the first build) by hand with `npm publish --access public`.
 - On npmjs.com, the package gets a trusted publisher: repo `kubed-io/cdn`, workflow `publish.yml`, environment `npm`.
-- The repo gets the base tag `v0.0.1` on its initial commit, the repo variables `GCP_WIF_PROVIDER` and
-  `GCP_PROJECT`, and the labels `dependencies`, `github-actions` and `no changelog`.
+- The repo gets the base tag `v0.0.1` on its initial commit, an `npm` environment, and the labels `dependencies`,
+  `javascript`, `github-actions` and `no changelog`. The version job mints the kubed.io App token from the org's
+  `GH_CLIENT_ID` variable and `GH_APP_KEY` secret, which reach public repos, so no repo-level GCP variables.
 - Dependabot gains the `npm` ecosystem.
 
 ## Rollout

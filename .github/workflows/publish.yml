@@ -25,9 +25,9 @@ name: 🧬 Publish Version
 # version without committing, tagging or releasing anything), then push=true to
 # actually cut the release.
 #
-# Auth for the version job: tokenless WIF → GCP Secret Manager → the kubed.io
-# GitHub App creds. The App token is what lets version-bump commit to main and
-# create the tag.
+# Auth for the version job: the kubed.io GitHub App, from the org's GH_CLIENT_ID
+# variable and GH_APP_KEY secret (org secrets reach public repos on the free
+# plan). The App token is what lets version-bump commit to main and create the tag.
 
 on:
   workflow_dispatch:
@@ -49,7 +49,7 @@ on:
         type: boolean
 
 # Least privilege by default. `version` and `release` opt up in their own
-# blocks; nothing else writes anything or needs a GCP identity.
+# blocks; nothing else writes anything.
 permissions:
   contents: read
 
@@ -71,11 +71,10 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write   # commit the rolled CHANGELOG and push the tag to main
-      id-token: write   # GCP workload-identity federation, for the App token
     # Deliberately NO release-notes output. GitHub refuses to set a job output
-    # whose value contains a registered secret, and the notes always contain
-    # `kubed-io` — every PR link generated for this repo does — which is a
-    # substring of a secret this workflow carries. The runner then logs
+    # whose value contains any registered secret, and release notes are long
+    # free text that nobody checks against them (on the GCP-auth variant of this
+    # workflow, every PR link tripped it). The runner then logs
     # "Skip output 'release-notes' since it may contain secret" as a *warning*
     # and the job goes green with the output silently empty, which is how a
     # release ships with no notes at all. The notes travel as an artifact
@@ -95,29 +94,16 @@ jobs:
           exit 1
         fi
 
-    - name: Authenticate to GCP
-      uses: google-github-actions/auth@v3
-      with:
-        workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
-        service_account: github@${{ vars.GCP_PROJECT }}.iam.gserviceaccount.com
-
-    # github-app = kubed.io app creds (JSON: github_app_client_id /
-    # github_app_private_key) pushed by apps/github/providers/gcp.
-    - name: Get secrets
-      id: secrets
-      uses: google-github-actions/get-secretmanager-secrets@v3
-      with:
-        secrets: |-
-          github_app:${{ vars.GCP_PROJECT }}/github-app
-
-    - name: Mint kubed.io app token
+    # `client-id`, not `app-id`: the action deprecated the latter. GH_CLIENT_ID
+    # holds the App's client id (`Iv…`), not its numeric id.
+    #
+    # Scoped to contents, so the token carries no more than a commit and a tag need.
+    - name: Create GitHub App Token
       id: app-token
       uses: actions/create-github-app-token@v3
       with:
-        client-id: ${{ fromJson(steps.secrets.outputs.github_app).github_app_client_id }}
-        private-key: ${{ fromJson(steps.secrets.outputs.github_app).github_app_private_key }}
-        # Without a permission-* input the token carries every permission the
-        # App is installed with; a commit and a push need contents alone.
+        client-id: ${{ vars.GH_CLIENT_ID }}
+        private-key: ${{ secrets.GH_APP_KEY }}
         permission-contents: write
 
     - name: Checkout
