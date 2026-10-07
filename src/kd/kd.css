@@ -1,7 +1,7 @@
 /*
- * Base styles for Grafana panels, built only on the --kd-* properties that
- * theme.js sets. Business Text loads this into the whole page, so every rule
- * is scoped under .kd, the class the panel's root markup carries.
+ * Base styles for markup inside a `.kd` root, built only on the --kd-* properties
+ * the theme layer sets. Business Text loads stylesheets into the whole page, so
+ * every rule is scoped under .kd.
  */
 
 .kd {

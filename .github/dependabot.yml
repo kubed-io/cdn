@@ -1,7 +1,6 @@
 # Dependabot version updates (security updates are toggled in repo settings,
-# not in this file). One entry per package manager active in the repo — and
-# here that is only GitHub Actions: the assets are plain CSS and ES modules,
-# and the tests run on Node's built-in runner with no npm dependencies.
+# not in this file). One entry per package manager active in the repo: npm for
+# the package and its toolchain, and GitHub Actions.
 #
 # House rules:
 # - Weekly cadence: enough to stay current without spamming the queue.
@@ -13,6 +12,28 @@
 # Docs: https://docs.github.com/en/code-security/dependabot/working-with-dependabot/dependabot-options-reference
 version: 2
 updates:
+
+# npm: the bundled runtime dependencies and the build/test toolchain.
+- package-ecosystem: npm
+  directory: /
+  schedule:
+    interval: weekly
+    day: monday
+  open-pull-requests-limit: 5
+  labels:
+  - dependencies
+  - javascript
+  - no changelog
+  commit-message:
+    prefix: build(deps)
+  cooldown:
+    default-days: 7
+    semver-major-days: 14
+  groups:
+    npm-minor-patch:
+      update-types:
+      - minor
+      - patch
 
 # GitHub Actions: keeps every `uses:` pin across workflows current.
 - package-ecosystem: github-actions

@@ -16,5 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- `grafana/theme.js`: `applyTheme(element, theme)` maps Grafana's live theme onto `--kd-*` custom properties and `data-theme`.
-- `grafana/theme.css`: text, links, tables, badges, code and cards for `.kd` panels, in both Grafana themes.
+- `@kubed.io/cdn` on npm, served by jsDelivr: TypeScript built into ES modules, one entry per domain.
+- `kd.js`: `applyTheme(element, theme)` maps Grafana's live theme onto `--kd-*` custom properties and `data-theme`.
+- `kd.js`: `followTheme(element)` themes an element from Grafana's runtime and follows a live theme switch.
+- `kd.js`: `define(name, element)` registers a custom element once per page and warns when another version owns the tag.
+- `kd.css`: text, links, tables, badges, code and cards for `.kd` panels, in both Grafana themes.

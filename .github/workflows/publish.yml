@@ -3,18 +3,23 @@ name: 🧬 Publish Version
 # Manual, intentional release. Each job owns exactly one thing and hands the next
 # a clean input:
 #
-#   test    → node --test. Gates everything: a tag is permanent at jsDelivr, so
-#             the cheapest place to find a broken asset is before one exists.
-#   version → roll CHANGELOG [Unreleased], commit + tag on main. The ONLY job
-#             that writes a file or a tag; it emits the tag consumed downstream.
+#   test    → typecheck, Vitest, build. Gates everything: a published version
+#             is permanent at npm and jsDelivr, so the cheapest place to find a
+#             broken asset is before one exists.
+#   version → put the next version in package.json, roll CHANGELOG
+#             [Unreleased], commit + tag on main. The ONLY job that writes a
+#             file or a tag; it emits the tag consumed downstream.
+#   npm     → build the tag and `npm publish` it, tokenless (npm trusted
+#             publishing over OIDC) and with provenance. dist/ is never
+#             committed: it exists only in the tarball, and jsDelivr serves it
+#             from there, cached for a year and immutable.
 #   release → cut the GitHub Release on that tag, its body the rolled notes plus
-#             the jsDelivr URL of every asset at the new tag.
+#             the jsDelivr URL of every entry at the new version.
 #
-# There is no build and no package. The tag's tree IS the release: jsDelivr
-# serves any file at any tag of a public repo, cached for a year and immutable,
-# so the moment `version` pushes the tag the assets are live. A file released
-# under a tag can never be replaced — which is the point, and also why the dry
-# run comes first.
+# The tag exists before the package does. If `npm` fails, re-run that job: it
+# builds from the existing tag and never re-tags. A pre-release bump publishes
+# under the `next` dist-tag, never `latest` — pre-releases are how unreleased
+# code gets tried in a real Grafana.
 #
 # Run once with push=false (dry run: runs the tests and computes the next
 # version without committing, tagging or releasing anything), then push=true to
@@ -48,11 +53,11 @@ on:
 permissions:
   contents: read
 
-# The assets a release advertises. A new top-level consumer beside grafana/
-# adds its files here so the Release and the summary link them.
+# The entries a release advertises. A new entry in vite.config.ts adds its
+# files here so the Release and the summary link them.
 env:
-  CDN: https://cdn.jsdelivr.net/gh/${{ github.repository }}
-  ASSETS: grafana/theme.js grafana/theme.css
+  CDN: https://cdn.jsdelivr.net/npm/@kubed.io/cdn
+  ASSETS: dist/kd.js dist/kd.css
 
 jobs:
 
@@ -121,9 +126,29 @@ jobs:
         fetch-depth: 0
         token: ${{ steps.app-token.outputs.token }}
 
-    # One call, given the bump keyword. It computes the next version either way
-    # and emits it, so a dry run (push: false) already answers "what would this
-    # be" without a second invocation.
+    # Two calls. This one never pushes: it only answers "what is next", so the
+    # version can go into package.json before anything is committed. Neither
+    # call edits files on disk — the CHANGELOG roll happens in the commit.
+    - name: Next Version
+      id: next
+      uses: duplocloud/version-bump@main
+      with:
+        version: ${{ inputs.action }}
+        push: false
+        token: ${{ steps.app-token.outputs.token }}
+
+    - name: Setup Node
+      uses: actions/setup-node@v7
+      with:
+        node-version: 24
+
+    - name: Set the Package Version
+      env:
+        VERSION: ${{ steps.next.outputs.version }}
+      run: npm version "$VERSION" --no-git-tag-version --allow-same-version
+
+    # The same computation again, now committing package.json and the lockfile
+    # beside the rolled CHANGELOG, so the tag's package.json names its version.
     - name: Bump Version
       id: bump
       uses: duplocloud/version-bump@main
@@ -131,6 +156,9 @@ jobs:
         version: ${{ inputs.action }}
         push: ${{ inputs.push }}
         token: ${{ steps.app-token.outputs.token }}
+        files: |-
+          package.json
+          package-lock.json
 
     # A step output is not subject to the job-output secret check, so the notes
     # are readable here even though they cannot be published as a job output.
@@ -159,28 +187,65 @@ jobs:
         path: notes/release-notes.md
         retention-days: 1
 
-    # On a dry run these are the URLs the tag WOULD serve, which is the thing
-    # to check before a permanent tag exists.
+    # On a dry run these are the URLs the version WOULD serve, which is the
+    # thing to check before a permanent version exists.
     - name: Summary
       env:
         TAG: ${{ steps.bump.outputs.tag }}
+        VERSION: ${{ steps.bump.outputs.version }}
         PUSH: ${{ inputs.push }}
       run: |
         {
           if [[ "$PUSH" == "true" ]]; then
             echo "## Tagged \`${TAG}\`"
           else
-            echo "## Dry run: would tag \`${TAG}\`"
+            echo "## Dry run: would tag \`${TAG}\` and publish \`${VERSION}\`"
           fi
           echo
           for asset in $ASSETS; do
-            echo "- ${CDN}@${TAG}/${asset}"
+            echo "- ${CDN}@${VERSION}/${asset}"
           done
         } >> "$GITHUB_STEP_SUMMARY"
 
+  npm:
+    name: npm
+    needs: version
+    if: inputs.push
+    runs-on: ubuntu-latest
+    # The trusted publisher on npmjs.com names this workflow AND this
+    # environment, so a publish from anywhere else is refused by npm itself.
+    environment: npm
+    permissions:
+      contents: read
+      id-token: write   # npm trusted publishing (OIDC) and provenance
+    steps:
+
+    - name: Checkout the Tag
+      uses: actions/checkout@v7
+      with:
+        ref: ${{ needs.version.outputs.tag }}
+        persist-credentials: false
+
+    # No cache: a cache written by a PR run must never feed a release build.
+    - name: Setup Node
+      uses: actions/setup-node@v7
+      with:
+        node-version: 24
+        registry-url: https://registry.npmjs.org
+
+    - name: Install
+      run: npm ci --ignore-scripts
+
+    # prepublishOnly runs the typecheck, the tests and the build again, here,
+    # on exactly the tree being published.
+    - name: Publish
+      env:
+        DIST_TAG: ${{ contains(needs.version.outputs.version, '-') && 'next' || 'latest' }}
+      run: npm publish --provenance --access public --tag "$DIST_TAG"
+
   release:
     name: Release
-    needs: version
+    needs: [version, npm]
     if: inputs.push
     runs-on: ubuntu-latest
     permissions:
@@ -203,6 +268,7 @@ jobs:
         REPO: ${{ github.repository }}
         RUN_ID: ${{ github.run_id }}
         TAG: ${{ needs.version.outputs.tag }}
+        VERSION: ${{ needs.version.outputs.version }}
       run: |
         {
           echo "[![Publish](${SERVER}/${REPO}/actions/workflows/publish.yml/badge.svg)](${SERVER}/${REPO}/actions/runs/${RUN_ID})"
@@ -213,13 +279,13 @@ jobs:
           echo
           echo "## Assets"
           echo
-          echo "Served by jsDelivr from this tag, immutable:"
+          echo "Served by jsDelivr from npm, immutable:"
           echo
           for asset in $ASSETS; do
-            echo "- ${CDN}@${TAG}/${asset}"
+            echo "- ${CDN}@${VERSION}/${asset}"
           done
           echo
-          echo "In a dashboard, set the hidden \`assets\` constant to \`${CDN}@${TAG}\`."
+          echo "In a dashboard, set the hidden \`assets\` constant to \`${CDN}@${VERSION}/dist\`."
         } > body.md
         cat body.md >> "$GITHUB_STEP_SUMMARY"
 
@@ -241,8 +307,8 @@ jobs:
           echo
           echo "- **Tag**: \`${TAG}\`"
           echo "- **Version**: \`${VERSION}\`"
-          echo "- **assets**: \`${CDN}@${TAG}\`"
+          echo "- **assets**: \`${CDN}@${VERSION}/dist\`"
           for asset in $ASSETS; do
-            echo "- ${CDN}@${TAG}/${asset}"
+            echo "- ${CDN}@${VERSION}/${asset}"
           done
         } >> "$GITHUB_STEP_SUMMARY"

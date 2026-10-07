@@ -1,12 +1,12 @@
 name: 🧪 Test
 
-# Unit tests on Node's built-in runner: applyTheme against a fake element and
-# theme, and a scan of theme.css for anything that escapes the .kd scope or
-# hard-codes a colour. No npm dependencies, so there is nothing to install and
-# nothing for a cache to hold.
+# The type check, Vitest under happy-dom (the theme layer, guarded element
+# definitions, and a scan of every stylesheet for anything that escapes the .kd
+# scope or hard-codes a colour), then the build that publish.yml ships, with a
+# size report per file in the job summary.
 #
 # One Node version, not a matrix. The code runs in Grafana users' browsers,
-# never in Node; Node is only the test harness, and 24 is the current LTS.
+# never in Node; Node is only the toolchain, and 24 is the current LTS.
 #
 # publish.yml calls this through workflow_call before it cuts a version, so a
 # release never tags a tree whose tests are red.
@@ -21,8 +21,12 @@ on:
   push:
     branches: [main]
     paths:
-    - grafana/**
+    - src/**
     - test/**
+    - package.json
+    - package-lock.json
+    - tsconfig*.json
+    - vite.config.ts
     - .github/workflows/test.yml
   workflow_dispatch:
   workflow_call: {}
@@ -48,6 +52,30 @@ jobs:
       uses: actions/setup-node@v7
       with:
         node-version: 24
+        cache: npm
+
+    # --ignore-scripts: no dependency gets to run code at install time. The
+    # toolchain needs none (Vite 8's bundler ships as prebuilt optional packages).
+    - name: Install
+      run: npm ci --ignore-scripts
+
+    - name: Type Check
+      run: npm run typecheck
 
     - name: Test
-      run: node --test
+      run: npm test
+
+    - name: Build
+      run: npm run build
+
+    - name: Size
+      run: |
+        {
+          echo "## dist"
+          echo
+          echo "| File | Bytes | Gzip |"
+          echo "|---|---:|---:|"
+          find dist -type f \( -name '*.js' -o -name '*.css' \) | sort | while read -r f; do
+            echo "| \`${f#dist/}\` | $(wc -c < "$f") | $(gzip -c "$f" | wc -c) |"
+          done
+        } >> "$GITHUB_STEP_SUMMARY"
