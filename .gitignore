@@ -1,6 +1,6 @@
 node_modules/
-dist/
-coverage/
+/dist/
+/coverage/
 *.tgz
-pkg/
-dist-probe/
+/pkg/
+/dist-probe/

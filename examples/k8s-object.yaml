@@ -1,0 +1,51 @@
+# Any Kubernetes object as a page, with <kd-k8s-object> instead of jq-built HTML.
+# A v2 Panel element. The dashboard needs the hidden `assets` constant and the
+# variables the URL uses (here app_namespace and pod, like k8s-pod). The query
+# returns the raw API object; the element draws the title bar, conditions,
+# summary, labels, annotations and YAML from it.
+kind: Panel
+spec:
+  title: ''
+  transparent: true
+  data:
+    kind: QueryGroup
+    spec:
+      queries:
+      - kind: PanelQuery
+        spec:
+          refId: A
+          query:
+            kind: DataQuery
+            group: yesoreyeram-infinity-datasource
+            datasource:
+              name: b6273e2d-94eb-457c-ae1e-0a2b06b1befd
+            spec:
+              type: json
+              source: url
+              parser: jq-backend
+              format: table
+              url: https://kubernetes.default.svc/api/v1/namespaces/${app_namespace}/pods/${pod}
+              url_options:
+                method: GET
+                headers:
+                - key: Accept
+                  value: application/json
+              root_selector: '[{doc: tojson}]'
+              columns:
+              - selector: doc
+                text: doc
+                type: string
+  vizConfig:
+    kind: marcusolsson-dynamictext-panel
+    spec:
+      options:
+        renderMode: allRows
+        content: <div class="kd"><kd-k8s-object key="pod"></kd-k8s-object></div>
+        defaultContent: <div class="kd">Not found.</div>
+        afterRender: |-
+          const base = context.grafana.replaceVariables('${assets}');
+          import(base + '/k8s.js').then((m) => {
+            m.applyTheme(context.element, context.grafana.theme);
+            context.element.querySelector('kd-k8s-object').data = JSON.parse(context.data[0].doc);
+          });
+        styles: '.dt-row { height: 100%; padding: 4px 0 0; }'
