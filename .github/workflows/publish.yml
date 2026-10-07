@@ -6,8 +6,8 @@ name: 🧬 Publish Version
 #   test    → typecheck, Vitest, build. Gates everything: a published version
 #             is permanent at npm and jsDelivr, so the cheapest place to find a
 #             broken asset is before one exists.
-#   version → put the next version in package.json, roll CHANGELOG
-#             [Unreleased], commit + tag on main. The ONLY job that writes a
+#   version → `npm version` bumps package.json, then version-bump rolls
+#             CHANGELOG [Unreleased], commits both + tags on main. The ONLY job that writes a
 #             file or a tag; it emits the tag consumed downstream.
 #   npm     → build the tag and `npm publish` it, tokenless (npm trusted
 #             publishing over OIDC) and with provenance. dist/ is never
@@ -126,34 +126,30 @@ jobs:
         fetch-depth: 0
         token: ${{ steps.app-token.outputs.token }}
 
-    # Two calls. This one never pushes: it only answers "what is next", so the
-    # version can go into package.json before anything is committed. Neither
-    # call edits files on disk — the CHANGELOG roll happens in the commit.
-    - name: Next Version
-      id: next
-      uses: duplocloud/version-bump@main
-      with:
-        version: ${{ inputs.action }}
-        push: false
-        token: ${{ steps.app-token.outputs.token }}
-
+    # package.json is the source of truth for the version, as in
+    # duplocloud/version-bump's own publish.yml: `npm version` computes the next
+    # one from it (and rewrites package.json and the lockfile in place), and
+    # version-bump is handed that exact version. version-bump then commits both
+    # files beside the rolled CHANGELOG and tags, so every tag's package.json
+    # names its own version. On a dry run the edits stay in this runner.
     - name: Setup Node
       uses: actions/setup-node@v7
       with:
         node-version: 24
 
-    - name: Set the Package Version
+    - name: NPM Version
+      id: version
       env:
-        VERSION: ${{ steps.next.outputs.version }}
-      run: npm version "$VERSION" --no-git-tag-version --allow-same-version
+        ACTION: ${{ inputs.action }}
+      run: |
+        TAG=$(npm version "$ACTION" --no-git-tag-version)
+        echo "tag=$TAG" >> "$GITHUB_OUTPUT"
 
-    # The same computation again, now committing package.json and the lockfile
-    # beside the rolled CHANGELOG, so the tag's package.json names its version.
     - name: Bump Version
       id: bump
       uses: duplocloud/version-bump@main
       with:
-        version: ${{ inputs.action }}
+        version: ${{ steps.version.outputs.tag }}
         push: ${{ inputs.push }}
         token: ${{ steps.app-token.outputs.token }}
         files: |-

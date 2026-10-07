@@ -95,7 +95,9 @@ registry only, so GitHub Packages is not an option.
   package that already exists, so **the first version is published by hand**.
 - Current versions: lit 3.3.3, TypeScript 7.0.2, Vite 8.3.3, Vitest 5.0.3, happy-dom 20.14.5, `@n8n/chat`
   1.41.3 (the tile pins 1.39.2). Node 24 and npm 11 are in the pod.
-- `duplocloud/version-bump` takes a `files` input, files committed together with the version commit.
+- `duplocloud/version-bump` (Dr K's action) takes an explicit version and a `files` input, committed with the version
+  commit. Without a tag it assumes the previous version is `0.0.1` and asks GitHub for notes since `v0.0.1`, hence
+  the base tag.
 
 **What the live code is made of** (the survey; raw dumps are scratch).
 
@@ -276,8 +278,10 @@ size report per entry goes to the job summary.
 **Release.** `publish.yml`, dispatched by hand, `push=false` first:
 
 1. **test**, then a build of the tree being released.
-2. **version**: `version-bump` computes the next version, `package.json` (and the lockfile) get it, and
-   `version-bump` commits them with the rolled CHANGELOG and tags, through its `files` input.
+2. **version**: `package.json` is the source of truth, as in `duplocloud/version-bump`'s own `publish.yml`.
+   `npm version <action> --no-git-tag-version` computes the next version and rewrites `package.json` and the
+   lockfile; `version-bump` is handed that exact version and commits both (its `files` input) with the rolled
+   CHANGELOG, then tags.
 3. **npm**: checks out the tag, builds, and runs `npm publish --provenance --access public` with trusted publishing
    (`id-token: write`, an `npm` GitHub environment). Pre-release bumps (`prepatch` and the like) publish under the
    `next` dist-tag, never `latest`.
