@@ -1,0 +1,111 @@
+name: 🛡️ Quality
+
+# The static-analysis and audit gates, kept out of test.yml so a red here names
+# the thing that is wrong instead of burying it in a test run. Two independent
+# jobs, all fast, all parallel:
+#
+#   CodeQL             the code scanner — the TypeScript AND the workflows here
+#   Dependency Audit   npm audit over the lockfile — what we ship and what builds it
+#   Workflow Audit     zizmor over .github — CI supply chain and token hygiene
+#
+# Runs on pull requests and on pushes to main, so the badge tracks trunk and a
+# direct push is gated the same way a PR is.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+
+  # ---------------------------------------------------------------------------
+  # The code scanner. `actions` is in the language list on purpose: the release
+  # workflow handles a GitHub App key that can push to main, so the workflows
+  # are as much attack surface as the JavaScript that every dashboard imports.
+  # ---------------------------------------------------------------------------
+  codeql:
+    name: CodeQL
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      # Publish findings to Security → Code scanning, and onto the PR.
+      security-events: write
+    steps:
+
+    - name: Checkout
+      uses: actions/checkout@v7
+      with:
+        persist-credentials: false
+
+    # CodeQL extracts TypeScript from source, so there is nothing to build.
+    #
+    # Deliberately NO `build-mode: none` here. That input is only valid when a
+    # job analyses ONE language — the action rejects it alongside a list — and
+    # setting it would trade a correct two-language job for a matrix, two check
+    # names, and a required-status-check list that has to name both.
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@v4
+      with:
+        languages: javascript-typescript,actions
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v4
+
+  # ---------------------------------------------------------------------------
+  # Every dependency, dev ones included: the toolchain runs in the job that
+  # publishes, and whatever it bundles (lit, later) ships to every dashboard.
+  # High and critical fail the job; lower ones are Dependabot's to raise.
+  # ---------------------------------------------------------------------------
+  audit:
+    name: Dependency Audit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+
+    - name: Checkout
+      uses: actions/checkout@v7
+      with:
+        persist-credentials: false
+
+    - name: Setup Node
+      uses: actions/setup-node@v7
+      with:
+        node-version: 24
+
+    - name: Audit
+      run: npm audit --audit-level=high
+
+  # ---------------------------------------------------------------------------
+  # zizmor audits the CI itself — template injection, over-broad tokens,
+  # credential persistence, unreviewed third-party actions. Config and the
+  # reasoning behind each relaxation live in .github/zizmor.yml.
+  # ---------------------------------------------------------------------------
+  actions:
+    name: Workflow Audit
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+
+    - name: Checkout
+      uses: actions/checkout@v7
+      with:
+        persist-credentials: false
+
+    # A pull request from a FORK gets a read-only token, so the SARIF upload
+    # would 403 and fail an otherwise-passing audit. zizmor's own exit code is
+    # the gate either way — only the Security-tab enrichment is skipped, and the
+    # inline annotations still land on the PR.
+    - name: Audit Workflows
+      uses: zizmorcore/zizmor-action@v0.6.4
+      with:
+        inputs: .github/
+        persona: regular
+        advanced-security: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}

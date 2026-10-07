@@ -1,0 +1,324 @@
+name: 🧬 Publish Version
+
+# Manual, intentional release, the same flow as krm-py and selenium-flow. Each
+# job owns one thing, ordered so nothing outward-facing happens until every
+# artifact it refers to exists:
+#
+#   test    → typecheck and Vitest; gates everything below
+#   version → `npm version` bumps package.json, then version-bump rolls
+#             CHANGELOG [Unreleased], commits both + tags on main. The ONLY job
+#             that writes a file or a tag; it emits the tag used downstream.
+#   package → check out that tag, build and `npm pack` → GHA artifact
+#   npm     → publish that tarball to npm, with provenance
+#   release → attach the same tarball to the GitHub Release
+#
+# npm uses trusted publishing, which npm binds to THIS file name and the `npm`
+# environment — so the upload is a job here, never inside a called workflow,
+# and renaming this file breaks publishing until npmjs.com is updated.
+#
+# dist/ is never committed: it exists only in the tarball, and jsDelivr serves
+# it from npm, cached for a year and immutable. A pre-release bump publishes
+# under the `next` dist-tag, never `latest`; pre-releases are how unreleased
+# code gets tried in a real Grafana.
+#
+# Run once with push=false (a dry run: tests, the next version, and the
+# package, nothing pushed), then push=true.
+#
+# This is a public repo: credentials are org secrets, with no GCP hop. The
+# kubed.io App token is what lets version-bump commit to main and create the tag.
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Version to bump to
+        default: patch
+        type: choice
+        options:
+        - patch
+        - minor
+        - major
+        - premajor
+        - preminor
+        - prepatch
+      push:
+        description: Push changes and create release
+        default: false
+        type: boolean
+
+# Least privilege by default. `version` and `release` opt up to contents: write
+# and `npm` to id-token: write in their own blocks.
+permissions:
+  contents: read
+
+# The entries a release advertises. A new entry in vite.config.ts adds its
+# files here so the Release and the summary link them.
+env:
+  CDN: https://cdn.jsdelivr.net/npm/@kubed.io/cdn
+  ASSETS: dist/kd.js dist/kd.css
+
+jobs:
+
+  test:
+    name: Test
+    uses: ./.github/workflows/test.yml
+
+  version:
+    name: Version
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # commit the rolled CHANGELOG and push the tag to main
+    # Deliberately NO release-notes output. GitHub refuses to set a job output
+    # whose value contains any registered secret, and release notes are long
+    # free text that nobody checks against them (on the GCP-auth variant of this
+    # workflow, every PR link tripped it). The runner then logs
+    # "Skip output 'release-notes' since it may contain secret" as a *warning*
+    # and the job goes green with the output silently empty, which is how a
+    # release ships with no notes at all. The notes travel as an artifact
+    # instead: artifact contents are not masked.
+    outputs:
+      tag: ${{ steps.bump.outputs.tag }}
+      version: ${{ steps.bump.outputs.version }}
+    steps:
+
+    - name: Validate Branch
+      if: inputs.push
+      env:
+        REF: ${{ github.ref_name }}
+      run: |
+        if [[ "$REF" != "main" ]]; then
+          echo "::error::Releases can only be pushed from main. Current ref: $REF"
+          exit 1
+        fi
+
+    # `client-id`, not `app-id`: the action deprecated the latter. GH_CLIENT_ID
+    # holds the App's client id (`Iv…`), not its numeric id.
+    #
+    # Scoped to contents, so the token carries no more than a commit and a tag need.
+    - name: Create GitHub App Token
+      id: app-token
+      uses: actions/create-github-app-token@v3
+      with:
+        client-id: ${{ vars.GH_CLIENT_ID }}
+        private-key: ${{ secrets.GH_APP_KEY }}
+        permission-contents: write
+
+    - name: Checkout
+      uses: actions/checkout@v7
+      with:
+        fetch-depth: 0
+        token: ${{ steps.app-token.outputs.token }}
+
+    # package.json is the source of truth for the version, as in
+    # duplocloud/version-bump's own publish.yml: `npm version` computes the next
+    # one from it (and rewrites package.json and the lockfile in place), and
+    # version-bump is handed that exact version. version-bump then commits both
+    # files beside the rolled CHANGELOG and tags, so every tag's package.json
+    # names its own version. On a dry run the edits stay in this runner.
+    - name: Setup Node
+      uses: actions/setup-node@v7
+      with:
+        node-version: 24
+
+    - name: NPM Version
+      id: version
+      env:
+        ACTION: ${{ inputs.action }}
+      run: |
+        TAG=$(npm version "$ACTION" --no-git-tag-version)
+        echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+    - name: Bump Version
+      id: bump
+      uses: duplocloud/version-bump@main
+      with:
+        version: ${{ steps.version.outputs.tag }}
+        push: ${{ inputs.push }}
+        token: ${{ steps.app-token.outputs.token }}
+        files: |-
+          package.json
+          package-lock.json
+
+    # A step output is not subject to the job-output secret check, so the notes
+    # are readable here even though they cannot be published as a job output.
+    # Written to a file and carried on as an artifact.
+    #
+    # Empty is a hard failure, not a warning. These notes ARE the release, and
+    # an empty body is exactly the kind of nothing that sails through a green
+    # run and is only noticed by whoever reads the release later.
+    - name: Save the Release Notes
+      env:
+        NOTES: ${{ steps.bump.outputs.release-notes }}
+      run: |
+        mkdir -p notes
+        printf '%s\n' "$NOTES" > notes/release-notes.md
+        if [[ ! -s notes/release-notes.md || -z "$(tr -d '[:space:]' < notes/release-notes.md)" ]]; then
+          echo "::error::The release notes came back empty. The GitHub Release \
+        would have no changelog, so this fails here rather than publishing one."
+          exit 1
+        fi
+        echo "Release notes: $(wc -l < notes/release-notes.md) lines." >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Upload the Release Notes
+      uses: actions/upload-artifact@v7
+      with:
+        name: release-notes
+        path: notes/release-notes.md
+        retention-days: 1
+
+    # On a dry run these are the URLs the version WOULD serve, which is the
+    # thing to check before a permanent version exists.
+    - name: Summary
+      env:
+        TAG: ${{ steps.bump.outputs.tag }}
+        VERSION: ${{ steps.bump.outputs.version }}
+        PUSH: ${{ inputs.push }}
+      run: |
+        {
+          if [[ "$PUSH" == "true" ]]; then
+            echo "## Tagged \`${TAG}\`"
+          else
+            echo "## Dry run: would tag \`${TAG}\` and publish \`${VERSION}\`"
+          fi
+          echo
+          for asset in $ASSETS; do
+            echo "- ${CDN}@${VERSION}/${asset}"
+          done
+        } >> "$GITHUB_STEP_SUMMARY"
+
+  # ---------------------------------------------------------------------------
+  # Build the tarball at the same tag → GHA artifact. Runs on a dry run too:
+  # "does it still package?" is exactly what a dry run is for.
+  # ---------------------------------------------------------------------------
+  package:
+    name: Package
+    needs: version
+    uses: ./.github/workflows/package.yml
+    with:
+      tag: ${{ inputs.push && needs.version.outputs.tag || '' }}
+
+  npm:
+    name: npm
+    needs: package
+    if: inputs.push
+    runs-on: ubuntu-latest
+    environment:
+      name: npm
+      url: https://www.npmjs.com/package/@kubed.io/cdn
+    permissions:
+      contents: read
+      id-token: write   # npm trusted publishing (OIDC) and provenance
+    steps:
+
+    - name: Download Package
+      uses: actions/download-artifact@v8
+      with:
+        name: ${{ needs.package.outputs.package }}
+        path: pkg
+
+    # Trusted publishing needs npm 11.5.1 or later, which Node 24 ships.
+    - name: Setup Node
+      uses: actions/setup-node@v7
+      with:
+        node-version: 24
+        registry-url: https://registry.npmjs.org
+
+    # Publishing a tarball runs no lifecycle script: what goes up is byte for
+    # byte what package.yml built and verified.
+    - name: Publish to npm
+      env:
+        TARBALL: pkg/${{ needs.package.outputs.tarball }}
+        DIST_TAG: ${{ contains(needs.package.outputs.version, '-') && 'next' || 'latest' }}
+      run: npm publish "$TARBALL" --provenance --access public --tag "$DIST_TAG"
+
+  # ---------------------------------------------------------------------------
+  # The outward-facing step, and the last one. No source checkout: it attaches
+  # the package artifact, so the Release carries the exact published tarball.
+  # ---------------------------------------------------------------------------
+  release:
+    name: Release
+    needs:
+    - version
+    - package
+    - npm
+    if: inputs.push
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # create the GitHub Release on the existing tag
+    steps:
+
+    # Same identity and the same scoping as the `version` job.
+    - name: Create GitHub App Token
+      id: app-token
+      uses: actions/create-github-app-token@v3
+      with:
+        client-id: ${{ vars.GH_CLIENT_ID }}
+        private-key: ${{ secrets.GH_APP_KEY }}
+        permission-contents: write
+
+    - name: Download Package
+      uses: actions/download-artifact@v8
+      with:
+        name: ${{ needs.package.outputs.package }}
+        path: pkg
+
+    - name: Download the Release Notes
+      uses: actions/download-artifact@v8
+      with:
+        name: release-notes
+        path: notes
+
+    # Composed into a file rather than inlined into the action's `body:`, because
+    # the notes cannot travel as a job output — see the `version` job.
+    - name: Compose the Release Body
+      env:
+        SERVER: ${{ github.server_url }}
+        REPO: ${{ github.repository }}
+        RUN_ID: ${{ github.run_id }}
+        VERSION: ${{ needs.package.outputs.version }}
+      run: |
+        {
+          echo "[![Publish](${SERVER}/${REPO}/actions/workflows/publish.yml/badge.svg)](${SERVER}/${REPO}/actions/runs/${RUN_ID})"
+          echo "[![Test](${SERVER}/${REPO}/actions/workflows/test.yml/badge.svg)](${SERVER}/${REPO}/actions/workflows/test.yml)"
+          echo "[![Quality](${SERVER}/${REPO}/actions/workflows/quality.yml/badge.svg)](${SERVER}/${REPO}/actions/workflows/quality.yml)"
+          echo
+          cat notes/release-notes.md
+          echo
+          echo "## Assets"
+          echo
+          echo "On npm as [\`@kubed.io/cdn@${VERSION}\`](https://www.npmjs.com/package/@kubed.io/cdn/v/${VERSION}), served by jsDelivr, immutable:"
+          echo
+          for asset in $ASSETS; do
+            echo "- ${CDN}@${VERSION}/${asset}"
+          done
+          echo
+          echo "In a dashboard, set the hidden \`assets\` constant to \`${CDN}@${VERSION}/dist\`."
+        } > body.md
+        cat body.md >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Create Release
+      uses: softprops/action-gh-release@v3.0.3
+      with:
+        token: ${{ steps.app-token.outputs.token }}
+        name: ${{ needs.version.outputs.tag }}
+        tag_name: ${{ needs.version.outputs.tag }}
+        prerelease: ${{ contains(needs.version.outputs.tag, '-') }}
+        body_path: body.md
+        files: pkg/${{ needs.package.outputs.tarball }}
+
+    - name: Summary
+      env:
+        TAG: ${{ needs.version.outputs.tag }}
+        VERSION: ${{ needs.package.outputs.version }}
+        TARBALL: ${{ needs.package.outputs.tarball }}
+      run: |
+        cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+        ## Publish
+
+        - **Tag**: \`${TAG}\`
+        - **Version**: \`${VERSION}\`
+        - **npm**: \`@kubed.io/cdn@${VERSION}\`
+        - **Tarball**: \`${TARBALL}\`
+        - **assets**: \`${CDN}@${VERSION}/dist\`
+        EOF

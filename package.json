@@ -1,0 +1,38 @@
+{
+  "name": "@kubed.io/cdn",
+  "version": "0.0.1",
+  "description": "A theme layer and web components for Grafana panels, loaded by URL from jsDelivr.",
+  "license": "MIT",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kubed-io/cdn.git"
+  },
+  "homepage": "https://github.com/kubed-io/cdn#readme",
+  "bugs": "https://github.com/kubed-io/cdn/issues",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    "./kd.js": {
+      "types": "./dist/kd/index.d.ts",
+      "default": "./dist/kd.js"
+    },
+    "./kd.css": "./dist/kd.css"
+  },
+  "scripts": {
+    "build": "vite build && tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "happy-dom": "^20.14.5",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.3",
+    "vitest": "^5.0.3"
+  }
+}
