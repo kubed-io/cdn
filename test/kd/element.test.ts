@@ -45,3 +45,41 @@ describe('KdElement', () => {
     expect(themedAncestor(document.createElement('i'))).toBeNull();
   });
 });
+
+describe('KdElement self-theming', () => {
+  const theme = {
+    isDark: true,
+    colors: { background: { primary: '#bg' }, text: { primary: '#text' } },
+  };
+  Object.assign(window, {
+    System: {
+      import: async () => ({
+        config: { theme2: theme },
+        ThemeChangedEvent: class {},
+        getAppEvents: () => ({ subscribe: () => ({ unsubscribe() {} }) }),
+      }),
+    },
+  });
+  const frames = () => new Promise((r) => setTimeout(r, 50));
+
+  it('themes itself when nothing above it is themed', async () => {
+    const el = document.createElement('kd-test-probe') as Probe;
+    document.body.append(el);
+    await frames();
+    expect(el.style.getPropertyValue('--kd-bg')).toBe('#bg');
+    expect(el.getAttribute('data-theme')).toBe('dark');
+    el.remove();
+  });
+
+  it('inherits when applyTheme reaches the panel root right after the element upgrades', async () => {
+    const root = document.createElement('div');
+    const el = document.createElement('kd-test-probe') as Probe;
+    root.append(el);
+    document.body.append(root);
+    root.setAttribute('data-theme', 'dark'); // what afterRender's applyTheme does, a tick later
+    await frames();
+    expect(el.style.getPropertyValue('--kd-bg')).toBe('');
+    expect(el.hasAttribute('data-theme')).toBe(false);
+    root.remove();
+  });
+});

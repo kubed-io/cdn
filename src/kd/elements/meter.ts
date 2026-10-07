@@ -52,8 +52,8 @@ export class KdMeter extends KdElement {
         top: -3px;
         bottom: -3px;
         width: 2px;
-        margin-left: -1px;
         background: var(--tone);
+        box-shadow: 0 0 0 1px var(--kd-bg, transparent);
       }
       .legend {
         display: flex;
@@ -88,6 +88,8 @@ export class KdMeter extends KdElement {
     const unit = d.unit ?? '';
     const largest = Math.max(value ?? 0, ...marks.map((m) => m.value));
     const scale = typeof d.max === 'number' && d.max > 0 ? d.max : largest > 0 ? largest : 1;
+    // A mark's left edge moves from 0 to 100% - its width, so one at the maximum stays inside.
+    const clamp = (f: number) => Math.min(1, Math.max(0, f));
     const at = (n: number) => `${Math.min(100, Math.max(0, (n / scale) * 100))}%`;
     const reached = value === undefined ? [] : marks.filter((m) => m.tone && value >= m.value);
     const fill = tone(reached.sort((a, b) => b.value - a.value)[0]?.tone, 'primary');
@@ -103,7 +105,7 @@ export class KdMeter extends KdElement {
           (m) =>
             html`<div
               class="mark ${tone(m.tone)}"
-              style=${styleMap({ left: at(m.value) })}
+              style=${styleMap({ left: `calc(${at(m.value)} - ${clamp(m.value / scale) * 2}px)` })}
               title="${m.label} ${number(m.value)}${unit}"
             ></div>`,
         )}

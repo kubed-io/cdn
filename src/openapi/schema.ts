@@ -137,7 +137,8 @@ export class KdSchema extends KdElement {
         overflow: hidden;
         text-overflow: ellipsis;
         max-width: 55%;
-        flex: none;
+        flex: 0 1 auto;
+        min-width: 0;
       }
       .ds {
         font-size: 12px;

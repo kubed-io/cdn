@@ -70,7 +70,7 @@ A release is then a one-line change per dashboard. Move every dashboard together
 ## 🧩 In a Business Text panel
 
 ```
-externalStyles: ["${assets}/kd.css"]
+externalStyles: [{ id: "kd", url: "${assets}/kd.css" }]   # objects: a bare string never loads
 content:        <div class="kd"> ... </div>
 afterRender:    import(context.grafana.replaceVariables("${assets}") + "/kd.js")
                   .then(m => m.applyTheme(context.element, context.grafana.theme))

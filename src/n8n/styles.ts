@@ -55,7 +55,8 @@ const parts = [
   `.n8n-chat-tile{display:block;text-align:center;text-decoration:none;padding-top:6px;color:inherit}`,
   `.n8n-chat-tile .icon{font-size:30px;line-height:1;height:30px}`,
   `.n8n-chat-tile img{height:30px}`,
-  `.n8n-chat-tile .label{font-size:12px;opacity:.75;margin-top:6px}`,
+  // Grafana's legacy `.badge, .label` rule would paint this a grey box; this selector outranks it.
+  `.n8n-chat-tile .label{display:block;font-size:12px;font-weight:inherit;line-height:inherit;opacity:.75;margin-top:6px;padding:0;background:none;color:inherit;border-radius:0;text-shadow:none;white-space:normal}`,
 
   // The state card. Colours come from the widget's own properties: .chat-body
   // inherits Grafana's dark-theme text colour, which measured 1.5:1 on the bubble.

@@ -21,7 +21,8 @@ describe('kd-meter', () => {
     expect(q(el, '.fill')?.style.width).toBe('75%');
     expect(q(el, '.fill')?.className).toBe('fill primary');
     const marks = [...shadow(el).querySelectorAll('.track .mark')] as HTMLElement[];
-    expect(marks.map((m) => m.style.left)).toEqual(['50%', '100%']);
+    // Each mark's left edge is clamped so one at the maximum stays inside the track.
+    expect(marks.map((m) => m.style.left)).toEqual(['calc(50% - 1px)', 'calc(100% - 2px)']);
     expect(marks.map((m) => m.className)).toEqual(['mark neutral', 'mark error']);
     const legend = [...q(el, '.legend')!.children].map((c) => c.textContent?.replace(/\s+/g, ' ').trim());
     expect(legend).toEqual(['384Mi', 'request 256Mi', 'limit 512Mi']);

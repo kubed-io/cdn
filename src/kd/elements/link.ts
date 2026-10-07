@@ -134,7 +134,7 @@ export class KdLink extends KdElement {
       a {
         color: var(--kd-link, inherit);
         text-decoration: none;
-        white-space: nowrap;
+        overflow-wrap: anywhere;
       }
       a:hover {
         text-decoration: underline;

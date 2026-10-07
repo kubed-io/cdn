@@ -50,6 +50,12 @@ export function themedAncestor(element: Element): Element | null {
   return null;
 }
 
+// Drops the properties followTheme set on an element, so it inherits again.
+function unthemed(element: HTMLElement): void {
+  for (const name of [...element.style].filter((n) => n.startsWith('--kd-'))) element.style.removeProperty(name);
+  element.removeAttribute('data-theme');
+}
+
 /**
  * The base of every `kd-*` element. Elements are stateless renderers: they
  * draw from their properties, which the panel pushes in on every render, and
@@ -69,11 +75,24 @@ export class KdElement extends LitElement {
   override connectedCallback(): void {
     super.connectedCallback();
     // Inside another kd element's shadow root, the outer one carries the theme.
-    if (themedAncestor(this) || this.getRootNode() instanceof ShadowRoot) return;
+    if (this.getRootNode() instanceof ShadowRoot) return;
+    // Elements upgrade while their module is still evaluating, before the
+    // panel's afterRender has called applyTheme on the root - so wait a frame,
+    // and stand down if a themed ancestor turns up in the meantime.
     const ticket = ++this.#following;
-    void followTheme(this).then((stop) => {
-      if (ticket === this.#following && this.isConnected) this.#stop = stop;
-      else stop();
+    const live = () => ticket === this.#following && this.isConnected && !themedAncestor(this);
+    const view = this.ownerDocument.defaultView;
+    const later = view?.requestAnimationFrame?.bind(view) ?? ((f: () => void) => setTimeout(f, 0));
+    later(() => {
+      if (!live()) return;
+      void followTheme(this).then((stop) => {
+        if (live()) {
+          this.#stop = stop;
+          return;
+        }
+        stop();
+        if (ticket === this.#following) unthemed(this);
+      });
     });
   }
 

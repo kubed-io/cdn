@@ -256,7 +256,7 @@ source), because the first version loaded owns each tag for the page session.
 Business Text, high level:
 
 ```
-externalStyles: ["${assets}/kd.css"]
+externalStyles: [{ id: "kd", url: "${assets}/kd.css" }]   # objects: a bare string never loads
 content:        <div class="kd"><kd-schema></kd-schema></div>
 afterRender:    const base = context.grafana.replaceVariables("${assets}")
                 import(base + "/openapi.js").then(m => {

@@ -33,7 +33,7 @@ export class KdData extends KdElement {
         color: color-mix(in srgb, var(--kd-success, currentColor) 70%, var(--kd-text, currentColor));
       }
       .num {
-        color: color-mix(in srgb, var(--kd-warning, currentColor) 75%, var(--kd-text, currentColor));
+        color: color-mix(in srgb, var(--kd-warning, currentColor) 55%, var(--kd-text, currentColor));
       }
       .bool,
       .null {
