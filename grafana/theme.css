@@ -1,0 +1,138 @@
+/*
+ * Base styles for Grafana panels, built only on the --kd-* properties that
+ * theme.js sets. Business Text loads this into the whole page, so every rule
+ * is scoped under .kd, the class the panel's root markup carries.
+ */
+
+.kd {
+  color: var(--kd-text);
+  font-family: var(--kd-font);
+  line-height: 1.5;
+}
+
+.kd a {
+  color: var(--kd-link);
+  text-decoration: none;
+}
+
+.kd a:hover {
+  text-decoration: underline;
+}
+
+.kd .dim {
+  color: var(--kd-text-dim);
+}
+
+.kd .muted {
+  color: var(--kd-text-2);
+}
+
+/* Tables */
+
+.kd table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.kd th,
+.kd td {
+  padding: calc(var(--kd-space) / 2) var(--kd-space);
+  border-bottom: 1px solid var(--kd-border);
+  text-align: left;
+  vertical-align: top;
+}
+
+.kd th {
+  color: var(--kd-text-2);
+  font-weight: 500;
+}
+
+.kd tbody tr:hover {
+  background: var(--kd-bg-2);
+}
+
+/* Badges */
+
+.kd .badge {
+  display: inline-block;
+  padding: 0 calc(var(--kd-space) * 0.75);
+  border: 1px solid var(--kd-border-strong);
+  border-radius: var(--kd-radius);
+  color: var(--kd-text-2);
+  font-size: 0.85em;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+.kd .badge.primary {
+  border-color: var(--kd-primary);
+  color: var(--kd-primary);
+}
+
+.kd .badge.success {
+  border-color: var(--kd-success);
+  color: var(--kd-success);
+}
+
+.kd .badge.warning {
+  border-color: var(--kd-warning);
+  color: var(--kd-warning);
+}
+
+.kd .badge.error {
+  border-color: var(--kd-error);
+  color: var(--kd-error);
+}
+
+.kd .badge.info {
+  border-color: var(--kd-info);
+  color: var(--kd-info);
+}
+
+/* Code */
+
+.kd code,
+.kd pre {
+  font-family: var(--kd-font-mono);
+  font-size: 0.9em;
+}
+
+.kd code {
+  padding: 0 calc(var(--kd-space) / 2);
+  border-radius: var(--kd-radius);
+  background: var(--kd-bg-2);
+}
+
+.kd pre {
+  padding: var(--kd-space);
+  border: 1px solid var(--kd-border);
+  border-radius: var(--kd-radius);
+  background: var(--kd-canvas);
+  overflow: auto;
+}
+
+.kd pre code {
+  padding: 0;
+  background: transparent;
+}
+
+/* Cards */
+
+.kd .card {
+  padding: calc(var(--kd-space) * 2);
+  border: 1px solid var(--kd-border);
+  border-radius: var(--kd-radius);
+  background: var(--kd-bg-2);
+}
+
+.kd .card + .card {
+  margin-top: var(--kd-space);
+}
+
+.kd .card > :first-child {
+  margin-top: 0;
+}
+
+.kd .card > :last-child {
+  margin-bottom: 0;
+}
