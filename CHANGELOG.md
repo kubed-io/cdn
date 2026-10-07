@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.4] - 2026-10-07
+
 ### Added
 
 - `kd.js`: the generic elements `kd-pill`, `kd-bar`, `kd-sheet`, `kd-groups`, `kd-data`, `kd-tabs`, `kd-meter`, `kd-steps`, `kd-table`, `kd-mask`, `kd-link` and `kd-tile`.
