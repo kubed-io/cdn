@@ -30,7 +30,7 @@ jobs:
   # ---------------------------------------------------------------------------
   codeql:
     name: CodeQL
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       # Publish findings to Security → Code scanning, and onto the PR.
@@ -63,7 +63,7 @@ jobs:
   # ---------------------------------------------------------------------------
   audit:
     name: Dependency Audit
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     steps:
@@ -88,7 +88,7 @@ jobs:
   # ---------------------------------------------------------------------------
   actions:
     name: Workflow Audit
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
       security-events: write

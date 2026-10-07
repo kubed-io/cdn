@@ -66,7 +66,7 @@ jobs:
   version:
     name: Version
     needs: test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write   # commit the rolled CHANGELOG and push the tag to main
     # Deliberately NO release-notes output. GitHub refuses to set a job output
@@ -202,7 +202,7 @@ jobs:
     name: npm
     needs: package
     if: inputs.push
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment:
       name: npm
       url: https://www.npmjs.com/package/@kubed.io/cdn
@@ -225,10 +225,12 @@ jobs:
         registry-url: https://registry.npmjs.org
 
     # Publishing a tarball runs no lifecycle script: what goes up is byte for
-    # byte what package.yml built and verified.
+    # byte what package.yml built and verified. The leading ./ is load-bearing:
+    # npm reads a bare `pkg/<file>.tgz` as GitHub shorthand for a repo and
+    # tries to clone it.
     - name: Publish to npm
       env:
-        TARBALL: pkg/${{ needs.package.outputs.tarball }}
+        TARBALL: ./pkg/${{ needs.package.outputs.tarball }}
         DIST_TAG: ${{ contains(needs.package.outputs.version, '-') && 'next' || 'latest' }}
       run: npm publish "$TARBALL" --provenance --access public --tag "$DIST_TAG"
 
@@ -243,7 +245,7 @@ jobs:
     - package
     - npm
     if: inputs.push
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write   # create the GitHub Release on the existing tag
     steps:
