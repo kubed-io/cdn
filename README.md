@@ -9,10 +9,24 @@
 
 ## 🗂️ What is here
 
-| File | What it is |
+| Entry | What it brings |
 |---|---|
-| `dist/kd.js` | the core: `applyTheme`, `followTheme` and `define` |
-| `dist/kd.css` | text, links, tables, badges, code and cards for `.kd` markup, styled only from the theme |
+| `dist/kd.js` | 🎨 the core: the theme layer, the Grafana page helpers, and every generic element |
+| `dist/kd.css` | text, links, tables, badges, code and cards for plain `.kd` markup |
+| `dist/openapi.js` | 📜 `<kd-schema>`: any OpenAPI v3 or JSON Schema, kubectl-explain style, rendered lazily |
+| `dist/k8s.js` | ☸️ Kubernetes objects mapped onto the core elements: `<kd-k8s-object>`, `<kd-k8s-ref>`, `<kd-k8s-events>` |
+| `dist/n8n.js` | 💬 `mount(config)`: the n8n agent chat tile for app dashboards |
+
+The entries share chunks, so a page that loads several pays for Lit and the core once. The look lives in the core; a domain entry adds behaviour, never colours.
+
+**Elements** (all `kd-*`, real custom elements with shadow DOM, themed from `--kd-*`):
+
+| | |
+|---|---|
+| `kd-pill` `kd-tile` `kd-link` `kd-mask` | small things: a toned pill, a header tile, a dashboard link that keeps the time range and a back chain, a click-to-reveal value |
+| `kd-bar` `kd-sheet` `kd-table` | a title bar with chips and a breadcrumb, a property sheet, a table; cells can be text, pills, links, code or data |
+| `kd-groups` `kd-data` | labels as grouped pills, annotations as a tree; any JSON value as folded YAML |
+| `kd-tabs` `kd-steps` `kd-meter` | tabs that remember their choice, a stepper, a value against request/limit marks |
 
 The source is TypeScript under `src/`, one folder per entry. `dist/` is built by CI and exists only in the published package.
 
@@ -64,7 +78,21 @@ afterRender:    import(context.grafana.replaceVariables("${assets}") + "/kd.js")
 
 `afterRender` runs on every re-render and `applyTheme` is idempotent, so switching Grafana's theme restyles the panel. Code with no `context.grafana.theme` calls `followTheme(element)` instead: it reads the live theme from Grafana's runtime and follows a theme switch.
 
-Every panel imports what it needs itself. The browser loads a URL once per page however many panels import it.
+Every panel imports what it needs itself. The browser loads a URL once per page however many panels import it, and an element defined by one panel works in all of them.
+
+**Feeding an element.** Elements draw from their `data` and nothing else, because Business Text recreates them whenever the panel's HTML changes. Push data in from `afterRender` on every render:
+
+```
+content:        <div class="kd"><kd-table></kd-table></div>
+afterRender:    import(base + "/kd.js").then(m => {
+                  m.applyTheme(context.element, context.grafana.theme)
+                  context.element.querySelector("kd-table").data = { rows: context.data }
+                })
+```
+
+Markup from a query can carry the data as a JSON attribute instead, escaped: `data="{{kdjson rows}}"` with the `kdjson` helper (`registerHelpers(context.handlebars)`), or `@json | @html` in Infinity jq. Never `{{{ }}}` JSON into an attribute.
+
+Ready-made panels are in [`examples/`](examples).
 
 ## 🛠️ Develop
 
