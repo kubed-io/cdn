@@ -59,6 +59,9 @@ export class KdTable extends KdElement {
       .right {
         text-align: right;
       }
+      td {
+        --kd-link-max: 40ch;
+      }
       .nowrap {
         white-space: nowrap;
       }

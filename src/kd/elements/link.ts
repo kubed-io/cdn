@@ -131,13 +131,22 @@ export class KdLink extends KdElement {
       :host {
         display: inline;
       }
+      /* One line: a long name ends in an ellipsis with the full text on hover.
+         A table caps links with --kd-link-max, since 100% means nothing to an
+         auto-layout column. */
       a,
-      span {
+      span.link {
         display: inline-flex;
         align-items: baseline;
-        max-width: 100%;
+        max-width: var(--kd-link-max, 100%);
         min-width: 0;
-        overflow-wrap: break-word;
+        vertical-align: bottom;
+      }
+      .text {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
       }
       a {
         color: var(--kd-link, inherit);
@@ -197,11 +206,12 @@ export class KdLink extends KdElement {
   override render() {
     const link = this.link;
     const url = linkUrl(link, this.ownerDocument?.defaultView);
-    const body = html`${renderIcon(link.icon)}<slot>${link.text ?? ''}</slot>`;
-    if (url === undefined) return html`<span title=${ifDefined(link.title)}>${body}</span>`;
+    const body = html`${renderIcon(link.icon)}<span class="text"><slot>${link.text ?? ''}</slot></span>`;
+    const title = link.title ?? link.text;
+    if (url === undefined) return html`<span class="link" title=${ifDefined(title)}>${body}</span>`;
     return html`<a
       href=${url}
-      title=${ifDefined(link.title)}
+      title=${ifDefined(title)}
       @click=${this.#click}
       @mouseenter=${this.#refresh}
       @focus=${this.#refresh}
