@@ -58,7 +58,15 @@ export function applyTheme(element: HTMLElement | null | undefined, theme: Theme
   if (typeof theme.isDark === 'boolean') {
     element.setAttribute('data-theme', theme.isDark ? 'dark' : 'light');
   }
+  // An element that upgraded before this root was themed may be theming itself
+  // (see KdElement); now that the root carries the theme, it inherits instead.
+  for (const child of element.querySelectorAll(`[${SELF_THEMED}]`)) {
+    (child as Element & { kdInherit?: () => void }).kdInherit?.();
+  }
 }
+
+/** Marks an element that is theming itself because nothing above it was. */
+export const SELF_THEMED = 'data-kd-self-themed';
 
 /** The parts of `@grafana/runtime` that following the theme needs. */
 interface Runtime {

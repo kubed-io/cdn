@@ -55,7 +55,7 @@ permissions:
 # files here so the Release and the summary link them.
 env:
   CDN: https://cdn.jsdelivr.net/npm/@kubed.io/cdn
-  ASSETS: dist/kd.js dist/kd.css
+  ASSETS: dist/kd.js dist/kd.css dist/openapi.js dist/k8s.js dist/n8n.js
 
 jobs:
 

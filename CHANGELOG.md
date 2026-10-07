@@ -14,6 +14,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `kd.js`: the generic elements `kd-pill`, `kd-bar`, `kd-sheet`, `kd-groups`, `kd-data`, `kd-tabs`, `kd-meter`, `kd-steps`, `kd-table`, `kd-mask`, `kd-link` and `kd-tile`.
+- `kd.js`: Grafana page helpers for variables, the time range, the refresh picker, rows and tabs, focusing a panel and fitting a panel to its content.
+- `kd.js`: `kdjson` and `registerHelpers` for passing data to an element from Handlebars.
+- `openapi.js`: `<kd-schema>` renders any OpenAPI v3 or JSON Schema kubectl-explain style, lazily, with every keyword and Kubernetes extension.
+- `openapi.js`: `normalize`, a schema model with `$ref` and `allOf` resolved, for building more schema tools.
+- `k8s.js`: `<kd-k8s-object>`, `<kd-k8s-ref>` and `<kd-k8s-events>`, plus the mapping from Kubernetes objects onto the core elements.
+- `n8n.js`: `mount(config)`, the n8n agent chat tile, so the library panel keeps only its settings.
+
 ## [0.0.3] - 2026-10-07
 
 ### Fixed

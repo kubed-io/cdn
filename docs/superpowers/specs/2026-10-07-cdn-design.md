@@ -1,6 +1,7 @@
 # cdn: a versioned web-component kit for Grafana panels
 
-Date: 2026-10-07. Status: round 2, approved in chat with Dr K, awaiting review of this document.
+Date: 2026-10-07. Status: round 2. Step 1 shipped as 0.0.3; steps 2-4 (the package side) are built on branch
+`bundle` per `docs/superpowers/plans/2026-10-07-cdn-bundle.md`; the dashboard switch-overs follow the release.
 
 This spec is deleted by the PR that completes this work; anything lasting moves to the README.
 
@@ -79,6 +80,8 @@ Measured or read on 2026-10-07.
   `getAppEvents()` emits `ThemeChangedEvent` on a live switch. The `<body>` `theme-dark`/`theme-light` class goes
   **stale** on a live switch and must not be used.
 - The core `text` panel executes inline `<script type="module">` on every mount.
+- Business Text 6.3's `externalStyles` takes `{id, url}` objects; a bare URL string never loads (found by the
+  bundle probe). The `<link>` goes away when the last panel using it unmounts.
 
 **npm and jsDelivr.**
 
@@ -138,8 +141,8 @@ dist/               build output, gitignored, shipped in the tarball
 |---|---|---|
 | `dist/kd.js`, `dist/kd.css` | `applyTheme`, self-theming, the scene helpers, every generic element | lit |
 | `dist/openapi.js` | the schema model and `kd-schema` | kd |
-| `dist/k8s.js` | k8s data mapping and the few k8s-only elements | kd, openapi |
-| `dist/n8n.js`, `dist/n8n.css` | `mount(config)` for the chat tile | kd; `@n8n/chat` at runtime |
+| `dist/k8s.js` | k8s data mapping and the few k8s-only elements | kd |
+| `dist/n8n.js` | `mount(config)` for the chat tile; its page-global stylesheet is a string it injects once | kd; `@n8n/chat` at runtime |
 
 Shared code (lit, the theme, the base element) lands in shared chunks under `dist/chunks/`, imported by relative
 URL. A panel that loads `k8s.js` and another that loads `openapi.js` share one copy, because the module map is
@@ -255,7 +258,7 @@ source), because the first version loaded owns each tag for the page session.
 Business Text, high level:
 
 ```
-externalStyles: ["${assets}/kd.css"]
+externalStyles: [{ id: "kd", url: "${assets}/kd.css" }]   # objects: a bare string never loads
 content:        <div class="kd"><kd-schema></kd-schema></div>
 afterRender:    const base = context.grafana.replaceVariables("${assets}")
                 import(base + "/openapi.js").then(m => {
