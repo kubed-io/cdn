@@ -80,6 +80,8 @@ Measured or read on 2026-10-07.
   `getAppEvents()` emits `ThemeChangedEvent` on a live switch. The `<body>` `theme-dark`/`theme-light` class goes
   **stale** on a live switch and must not be used.
 - The core `text` panel executes inline `<script type="module">` on every mount.
+- Business Text 6.3's `externalStyles` takes `{id, url}` objects; a bare URL string never loads (found by the
+  bundle probe). The `<link>` goes away when the last panel using it unmounts.
 
 **npm and jsDelivr.**
 
