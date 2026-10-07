@@ -2,6 +2,8 @@
 
 Date: 2026-10-07. Status: approved in chat with Dr K, awaiting review of this document.
 
+This spec is deleted by the PR that completes this work; anything lasting moves to the README.
+
 ## Problem
 
 The homelab's Grafana dashboards are getting web-heavy: Business Text panels carry HTML,
