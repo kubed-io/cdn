@@ -1,160 +1,339 @@
-# cdn: versioned static assets for Grafana panels
+# cdn: a versioned web-component kit for Grafana panels
 
-Date: 2026-10-07. Status: approved in chat with Dr K, awaiting review of this document.
+Date: 2026-10-07. Status: round 2, approved in chat with Dr K, awaiting review of this document.
 
 This spec is deleted by the PR that completes this work; anything lasting moves to the README.
 
+Round 1 (a theme layer as plain files served from git tags) was built on the `spec` branch but never released.
+Round 2 replaces its delivery: an npm package written in TypeScript, served by jsDelivr's npm mirror, carrying
+custom elements as well as the theme. Round 1's theme contract survives unchanged.
+
 ## Problem
 
-The homelab's Grafana dashboards are getting web-heavy: Business Text panels carry HTML,
-CSS and JavaScript, and some import libraries (marked, dompurify, highlight.js) from
-jsDelivr. Today the shared CSS and JS are inlined into every dashboard that uses them.
-For example, a 12 KB `k8s-view.css` sits in each of the k8s-* dashboards, which is part
-of why they reach 80–200 KB. The same CSS hard-codes dark-theme colours, so the views
-look wrong in light mode, and each dashboard styles itself a little differently.
+The homelab's Grafana dashboards are web applications in disguise. Business Text panels carry HTML, CSS and
+JavaScript, and none of it is shared - it is copied. A survey of the live instance on 2026-10-07 (65 dashboards,
+16 library panels) found:
 
-`kubed-io/cdn` is a public repo of static assets that panels load by URL, so dashboards
-reference shared code instead of carrying copies. It is the companion of the
-`grafana.krm.kubed.io` functions in krm-py (`docs/superpowers/specs/2026-10-07-grafana-krm-design.md`
-there), which keep dashboard sources in git.
+| What | Copies | Bytes |
+|---|---|---|
+| The k8s view stylesheet, in every Business Text panel's `styles` | 78 in 14 dashboards | 897 KB, 40% of all k8s dashboard JSON |
+| The events Handlebars helpers (evhead, evtabs, evsum, evtable) | 26 in 13 dashboards | 102 KB |
+| `common.jq` pasted into Infinity queries, building HTML server-side | 27 in 15 dashboards | about 256 KB |
+| The `n8n-chat-tile` library panel's script | 1, linked from 14 dashboards | 50 KB, with no tests and no version |
+
+The stylesheet hard-codes dark-theme colours with `.theme-light &` overrides, and every view styles its pills,
+tabs, sheets and trees a little differently. Changing one widget means regenerating and republishing every
+dashboard that copied it.
+
+`kubed-io/cdn` becomes the one place this code lives: a public npm package of ES modules and custom elements,
+loaded by URL from jsDelivr, pinned to an exact version by each dashboard. It is the companion of the
+`grafana.krm.kubed.io` functions in krm-py, which keep dashboard sources in git.
 
 ## Decisions
 
 | # | Decision | By |
 |---|---|---|
-| C1 | Assets are served by jsDelivr's GitHub proxy from this public repo, not by GitHub Pages. | Dr K |
-| C2 | Dashboards reference a version tag (`@vX.Y.Z`), never a branch. | recommended |
-| C3 | Each dashboard holds the asset base URL in one hidden constant variable, `assets`, so a release is a one-line change per dashboard. | recommended |
-| C4 | A theme layer maps Grafana's live theme onto CSS custom properties. Everything in this repo styles itself from those properties, never from hard-coded colours. | recommended |
-| C5 | Stylesheets are scoped, because Business Text loads them into the whole page. | recommended |
-| C6 | Plain CSS and ES modules first, with no build step. A framework (Svelte custom elements, Pico inside their shadow DOM) is a later, separate decision. | recommended |
-| C7 | Releases follow the kubed-io pattern: `publish.yml` with `duplocloud/version-bump`, a dry run first, and the CHANGELOG rolled into the tag. | recommended |
+| C1 | ~~Served from git tags via jsDelivr's GitHub proxy.~~ Superseded by C8. | Dr K |
+| C2 | Dashboards pin an exact version, never a range or a branch. | recommended |
+| C3 | Each dashboard holds the asset base URL in one hidden constant variable, `assets`. | recommended |
+| C4 | A theme layer maps Grafana's live theme onto `--kd-*` custom properties; everything styles itself from those. | recommended |
+| C5 | Styles never leak: components style inside their shadow root; light-DOM CSS is scoped under `.kd`. | recommended |
+| C6 | ~~Plain files, no build step.~~ Superseded by C9. Pico CSS is dropped: the look is Grafana's own, through C4. | recommended |
+| C7 | Releases follow the kubed-io pattern: `publish.yml` with `duplocloud/version-bump`, a dry run first, the CHANGELOG rolled into the tag. | recommended |
+| C8 | The package is published to **npmjs.com** and served by jsDelivr's npm mirror (`cdn.jsdelivr.net/npm/...`). | Dr K |
+| C9 | Source is **TypeScript**, built by CI into ES modules. | Dr K |
+| C10 | `dist/` is **never committed**. CI builds it and `npm publish` ships it inside the package tarball. | Dr K |
+| C11 | **One package, one version, several entry points** (`kd`, `openapi`, `k8s`, `n8n`) that share chunks. No all-in-one bundle. | Dr K + recommended |
+| C12 | **As much as possible lives in the core (`kd`).** A domain entry (`k8s`, `n8n`) adds behaviour and data mapping, not look: it defines no colours, no tokens and no general-purpose widgets. | Dr K |
+| C13 | Components are **custom elements built with Lit**, with shadow DOM. | recommended |
+| C14 | Components are **stateless renderers**: data is pushed in from the panel on every render; nothing lives only in an element. | recommended (from the probe) |
+| C15 | **Each panel imports the entry it needs itself.** There is no "deps panel". | recommended (from the probe) |
+| C16 | **Queries return data, not HTML.** Rendering moves from Infinity jq into the elements; jq only selects and reshapes. | recommended |
+| C17 | **The OpenAPI schema viewer is a first-class, domain-free entry** (`openapi`), the start of a family of schema tools. | Dr K |
+| C18 | **No secret ever enters this repo.** Credentials (the n8n Basic auth header) stay in Grafana and are passed in at mount time. | recommended |
 
 ## Facts this design rests on
 
 Measured or read on 2026-10-07.
 
-**Hosting.** Response headers, fetched with curl:
+**Panels share one page.** A probe dashboard (uid `probe-wc-e016f4`, since deleted) driven in Chrome on Grafana
+13.2.1 with Business Text 6.3.0 showed:
 
-| URL form | Cache-Control | CORS |
-|---|---|---|
-| `cdn.jsdelivr.net/gh/<org>/<repo>@vX.Y.Z/<file>` or `@<sha>` | `max-age=31536000, immutable` | `Access-Control-Allow-Origin: *`, `Cross-Origin-Resource-Policy: cross-origin` |
-| `cdn.jsdelivr.net/gh/<org>/<repo>@main/<file>` | `max-age=604800` (7 days in the browser), `s-maxage=43200` | `*` |
-| GitHub Pages | `max-age=600`, and URLs carry no version | `*` |
-| raw.githubusercontent | `max-age=300`, served as `text/plain` | `*` |
+- Every panel shares one `window`, one `customElements` registry and one ES module map. N panels importing the
+  same URL execute the module once. Markup rendered before its tag is defined upgrades the moment it is defined,
+  in any panel, in either order.
+- Custom tags survive Business Text's Handlebars and Markdown passes and the core `text` panel. The HTML
+  sanitizer is off (`disable_sanitize_html = true`) and there is no Content-Security-Policy.
+- Shadow DOM works. `--kd-*` properties set on the panel root inherit into shadow roots; a `>` selector in a
+  shadow stylesheet works (a content `<style>` has its `>` escaped); Grafana's legacy global `.badge` does not reach in.
+- `afterRender` has the real `window` and `document`; only the helpers editor hides them. Business Text content
+  does not substitute `${var}`.
+- A definition persists across SPA navigation. A second `customElements.define` of the same name throws; with a
+  guard, **the first version loaded owns the tag until a full page reload**.
+- Panels in a collapsed row or a closed tab are not in the DOM and their `afterRender` does not run.
+- When a panel's rendered HTML changes (new data, a variable), every element in it is recreated and its state is
+  lost. When the HTML is unchanged the elements are kept. `afterRender` runs twice per refresh.
+- Data in: setting a property from `afterRender` (`el.rows = context.data`) is clean. A JSON attribute works when
+  double-stashed through a helper (`data="{{kdjson data}}"`); triple-stashed, one `'` turns the tag into text.
+- The theme is reachable without `afterRender`: `System.import('@grafana/runtime')` gives `config.theme2`, and
+  `getAppEvents()` emits `ThemeChangedEvent` on a live switch. The `<body>` `theme-dark`/`theme-light` class goes
+  **stale** on a live switch and must not be used.
+- The core `text` panel executes inline `<script type="module">` on every mount.
 
-jsDelivr's other terms:
-- It serves public repos only, up to 20 MB per file.
-- A file at a tag or commit is cached permanently and cannot be replaced.
-- A branch refreshes at the CDN every 12 hours. Purging is limited.
+**npm and jsDelivr.**
 
-So a tag is the only URL form that is both cache-correct and immutable.
-
-**Grafana.**
-- Grafana 13.2.1 sends no Content-Security-Policy (`content_security_policy = false`), and the homelab sets `disable_sanitize_html = true`. Nothing blocks cross-origin scripts or styles.
-- Turning CSP on later would break this design, because the default template allows only `'self'` styles.
-
-**Business Text 6.3.0.** Grafana Labs' fork, current on the live instance.
-- `externalStyles` takes URLs. They are run through `replaceVariables`, so `${assets}/…` works, and loaded as `<link>` tags in the document head, which makes them global to the page.
-- External scripts were removed in 5.0. JavaScript loads modules with `import()` from `helpers` or `afterRender`.
-- `afterRender` receives `context.element` and `context.grafana`, which includes `theme` (`GrafanaTheme2`) and `replaceVariables`. It runs again on every re-render.
-
-**Grafana's theme.**
-- Grafana exposes no theme CSS variables. `context.grafana.theme` is the reliable source.
-- `window.grafanaBootData.user.lightTheme` holds only the saved preference.
-
-**Pico CSS.** Even `pico.conditional.css` 2.1.1 styles `:root` and `*`, so it is safe only inside a shadow root.
-
-**Repo state.** The repo is public and empty. It has no rulesets and no repo-level Actions variables.
-
-## Layout
-
-```
-README.md            what is here, the URL convention, how to use it from a panel
-CHANGELOG.md         Keep a Changelog; [Unreleased] rolls into each tag
-grafana/
-  theme.js           ES module: the theme layer
-  theme.css          base styles built only on the theme's custom properties
-.github/workflows/
-  publish.yml        the release
-```
-
-New consumers get their own top-level directory beside `grafana/`. Nothing in a released
-tag is ever renamed or deleted in place. A breaking change is a new path or a new major
-version.
-
-## The theme layer
-
-**`grafana/theme.js`** exports one function, `applyTheme(element, theme)`.
-- It sets custom properties on `element`, the panel's own root, never `:root`, from a `GrafanaTheme2`.
-- It sets `data-theme="dark"` or `"light"` from `theme.isDark`.
-- It is idempotent, because `afterRender` runs on every re-render.
-
-The property contract below is this repo's public API and follows semver:
-
-| Property | `GrafanaTheme2` source |
+| URL form | Cache-Control |
 |---|---|
-| `--kd-bg` | `colors.background.primary` |
-| `--kd-bg-2` | `colors.background.secondary` |
-| `--kd-canvas` | `colors.background.canvas` |
-| `--kd-text` | `colors.text.primary` |
-| `--kd-text-2` | `colors.text.secondary` |
-| `--kd-text-dim` | `colors.text.disabled` |
-| `--kd-link` | `colors.text.link` |
-| `--kd-border` | `colors.border.weak` |
-| `--kd-border-strong` | `colors.border.medium` |
-| `--kd-primary`, `--kd-success`, `--kd-warning`, `--kd-error`, `--kd-info` | `colors.<name>.main` |
-| `--kd-font`, `--kd-font-mono` | `typography.fontFamily`, `typography.fontFamilyMonospace` |
-| `--kd-radius` | `shape.radius.default` |
-| `--kd-space` | `spacing(1)` |
+| `cdn.jsdelivr.net/npm/<pkg>@<exact version>/<file>` | `max-age=31536000, immutable` |
+| `cdn.jsdelivr.net/npm/<pkg>@<range>/<file>` | `max-age=604800`, `s-maxage=43200` |
 
-Each source path is checked against the live `GrafanaTheme2` during implementation. Any
-path that differs is corrected in this table first. Every path matches Grafana v13.2.1's
-source (`packages/grafana-data/src/themes/`), read on 2026-10-07; the live check is
-Acceptance 2.
+Both send `access-control-allow-origin: *` and a JavaScript content type. jsDelivr mirrors the public npm
+registry only, so GitHub Packages is not an option.
 
-**`grafana/theme.css`:**
-- Every selector is scoped under the class `kd`, which the panel's root markup carries. There are no element-only, `*` or `:root` rules.
-- Colours, fonts, radii and spacing come only from the `--kd-*` properties.
-- It covers what more than one dashboard needs today: text, links, tables, badges, code and cards.
+- Dr K created the npm organisation `kubed.io` on 2026-10-07, so the scope is `@kubed.io`. It has no packages yet.
+- npm trusted publishing (OIDC from GitHub Actions, no token, provenance attached) can only be configured for a
+  package that already exists, so **the first version is published by hand**.
+- Current versions: lit 3.3.3, TypeScript 7.0.2, Vite 8.3.3, Vitest 5.0.3, happy-dom 20.14.5, `@n8n/chat`
+  1.41.3 (the tile pins 1.39.2). Node 24 and npm 11 are in the pod.
+- `duplocloud/version-bump` takes a `files` input, files committed together with the version commit.
 
-**How a panel uses it** (high-level):
+**What the live code is made of** (the survey; raw dumps are scratch).
+
+- The k8s view stylesheet has a 137-rule core identical to `kubed-io/grafana`'s `scripts/assets/k8s-view.css`,
+  plus 0-2.1 KB of extras per view. k8s-workspace carries a third copy, scoped `.xw`.
+- Recurring widgets across the k8s views: pill/badge, title bar, property sheet, label groups, annotation tree,
+  YAML viewer, kind link with icon and back chain, CSS radio tabs (positional rules stop at 8 tabs), events table,
+  resource meter, condition stepper, state stripe, secret mask. All are built as HTML inside Infinity jq.
+- The schema viewer: k8s-crd and k8s-rd render OpenAPI v3 in jq (`schema.jq`, about 22 KB with `common.jq`):
+  `$ref` and `allOf` resolution, kubectl-explain type names (`[]Container`, `map[string]string`), all 31 schema
+  keywords found across the cluster's 155 CRDs, Kubernetes extensions as tags, CEL validations, a depth guard.
+  Prometheus' CRD is about 890 KB of HTML and 1,800 fields.
+- `n8n-chat-tile` is a core `text` panel: about 190 B of markup, 4 KB of CSS and 22 KB of JS once comments are
+  removed. All of it is generic except one config block (the `chat_*` constants) and the auth header.
+
+## The package
+
+**Name:** `@kubed.io/cdn` (the org's scope, the repo's name). Dr K may rename it before the first publish; it cannot change after.
+
+**Layout:**
 
 ```
-externalStyles: ["${assets}/grafana/theme.css"]
-content:        <div class="kd"> ... </div>
-afterRender:    import(context.grafana.replaceVariables("${assets}") + "/grafana/theme.js")
-                  .then(m => m.applyTheme(context.element, context.grafana.theme))
+package.json        name, version, exports per entry, files: ["dist"]
+tsconfig.json
+vite.config.ts      library mode, one entry per domain, ES output, shared chunks
+src/
+  kd/               core: theme, tokens, base CSS, scene helpers, generic elements
+  openapi/          schema model + schema elements
+  k8s/              Kubernetes mapping: kinds, icons, links, events, conditions
+  n8n/              the chat tile
+test/               Vitest + happy-dom, one folder per entry
+dist/               build output, gitignored, shipped in the tarball
 ```
 
-The dashboard defines `assets` as a hidden `ConstantVariable` whose value is
-`https://cdn.jsdelivr.net/gh/kubed-io/cdn@vX.Y.Z`. With the krm-py functions this is a
-plain v2 variable in `dashboard.yaml`, with no templating.
+**Entry points** (high level; each is one ES module plus, where it has one, a light-DOM stylesheet):
 
-## Release
+| Entry | Gives | Imports |
+|---|---|---|
+| `dist/kd.js`, `dist/kd.css` | `applyTheme`, self-theming, the scene helpers, every generic element | lit |
+| `dist/openapi.js` | the schema model and `kd-schema` | kd |
+| `dist/k8s.js` | k8s data mapping and the few k8s-only elements | kd, openapi |
+| `dist/n8n.js`, `dist/n8n.css` | `mount(config)` for the chat tile | kd; `@n8n/chat` at runtime |
 
-- **`publish.yml`** is dispatched by hand. Its inputs are `action` (patch, minor, major or a pre-release) and `push` (default false).
-  - It mints the kubed.io GitHub App token through GCP workload identity, the same way `kubed-io/mopidy`'s `publish.yml` does.
-  - `duplocloud/version-bump` rolls `CHANGELOG.md`, commits and tags on `main`, then creates the GitHub Release.
-  - With `push=false` it is a dry run that changes nothing. Always run that first.
-- **Before the first release, three settings are needed:**
-  - **A base tag `v0.0.1` on the initial commit,** with no GitHub Release. `version-bump`'s first run 404s without it.
-  - **Repo-level variables `GCP_WIF_PROVIDER` and `GCP_PROJECT`,** copied from a working kubed-io repo. The org variables read as empty in new repos.
-  - **A ruleset bypass for the kubed.io App on `main`,** but only if a ruleset requiring pull requests is added. There is none today.
-- **No build step.** The tag's tree is what jsDelivr serves. If a build step is ever added (C6), its output must be committed in the version commit, before the tag.
+Shared code (lit, the theme, the base element) lands in shared chunks under `dist/chunks/`, imported by relative
+URL. A panel that loads `k8s.js` and another that loads `openapi.js` share one copy, because the module map is
+keyed by URL (fact above). An all-in-one bundle is not offered: it would pull `@n8n/chat`'s loader into every
+k8s panel and save nothing, since every entry is one import away.
+
+**Dependencies:** lit is bundled into the shared chunk, so the version is ours. `@n8n/chat` is not bundled: the
+`n8n` entry imports it at runtime from jsDelivr at a version pinned in the module (overridable in the config),
+from its `dist/` build (the root build lacks the stream reader and the `.chat-inputs` rules).
+
+## The core (`kd`)
+
+C12 makes this the bulk of the package. A domain entry that needs a new look adds it here, generically.
+
+**Theme.** Round 1's contract stands: `applyTheme(element, theme)` sets the `--kd-*` properties and `data-theme`
+on the panel root; the property table is public API under semver. Round 2 adds self-theming: an element with no
+themed ancestor reads `config.theme2` through `System.import('@grafana/runtime')` and follows
+`ThemeChangedEvent`, so a component works even where nobody calls `applyTheme`. Every element's shadow
+stylesheet reads only `--kd-*`, each with a fallback.
+
+**`kd.css`.** Round 1's `theme.css`: base light-DOM styles for markup inside `<div class="kd">` (text, links,
+tables, code, cards). Everything is scoped under `.kd`; there are no element-only, `*` or `:root` rules.
+
+**Scene helpers.** The page-level code the chat tile, Torrent and k8s-explorer each carry today: the dashboard
+scene, variables (read and set, respecting option lists), the time range (read raw and ISO, move in one call),
+the refresh picker (offered intervals, snapping), the row/tab tree and focusing a panel, and fitting a panel's
+grid height to its content.
+
+**Generic elements** (names are illustrative; the implementer settles the attribute and property shapes):
+
+| Element | Replaces | Data |
+|---|---|---|
+| `kd-pill` | pills and badges, condition badges | text, tone (`success`/`warning`/`error`/`info`/neutral), tooltip |
+| `kd-bar` | the k8s title bar, the app masthead | icon, eyebrow, title, chips, a breadcrumb chain |
+| `kd-sheet` | property sheets | key/value rows, values may be elements |
+| `kd-groups` | label groups and the annotation tree | a string map, grouped by prefix; JSON values fold into `kd-data` |
+| `kd-data` | the YAML viewer and JSON-in-annotations | any JSON value, shown as YAML, folded past a length |
+| `kd-tabs` | CSS radio tabs (any number of tabs) | tab labels with counts, slotted panes |
+| `kd-meter` | the resource meter | a value against one or more marks (request, limit) |
+| `kd-steps` | the condition stepper, the state stripe | ordered steps with status and time |
+| `kd-table` | the events table and other small HTML tables | rows and column definitions |
+| `kd-mask` | the secret mask | a value revealed on demand |
+| `kd-link` | kind links, dashboard links with a back chain | target dashboard, variables, label, icon |
+| `kd-tile` | the chat tile's header link | icon, label, link |
+
+**Element rules** (from the probe):
+
+- **Stateless.** An element renders from its properties and nothing else. `afterRender` pushes data in every time
+  (`el.rows = context.data`); it must be idempotent because it runs twice per refresh.
+- **Two ways in.** Properties from `afterRender` are preferred. For markup produced by a query, an element also
+  accepts its data as a JSON attribute; the package ships a `kdjson` Handlebars helper (double-stash safe) and
+  documents the jq escaping (`@html`, and no blank lines, because Markdown runs over the content).
+- **Guarded definitions.** Every element registers through one helper that skips a name already defined and logs
+  a console warning naming both versions. Each element class exposes the package version.
+- **Breaking changes get a new tag name.** Within a name, attributes and properties only grow. Because the first
+  version loaded owns a tag for the whole page session, an older bundle must keep rendering newer markup sensibly.
+- **No light-DOM side effects.** An element touches only its own shadow root, except the n8n mount, which owns
+  its `#n8n-chat` node on `<body>` by design.
+
+## The OpenAPI entry (`openapi`)
+
+The schema viewer is generic (C17): it knows OpenAPI v3 and JSON Schema, and treats Kubernetes' `x-kubernetes-*`
+extensions as known keywords because they are OpenAPI extensions, not because it knows Kubernetes.
+
+**Schema model.** A normaliser turns a document plus a root (a component name, or a CRD version's
+`openAPIV3Schema`) into a tree of nodes: `$ref` resolved within the document, `allOf` merged, recursion detected
+and cut with a "see above" reference rather than a depth limit, and a display type for every node in kubectl
+explain's spelling. Every keyword the jq renders today is carried; an unknown keyword lands under "other" with its
+raw value. The model is plain data with no DOM, so later tools reuse it.
+
+**`kd-schema`.** Renders the model as today's view does (field, type, constraints, required marker, description,
+enum, defaults, CEL rules, extensions as tags), with lazy expansion: a subtree is rendered when it is opened.
+That is what makes an 1,800-field CRD cheap. It takes the document and root as properties, or a URL to fetch
+(an Infinity proxy URL, so the panel needs no query).
+
+**Later tools** (out of scope for this round, designed for): a viewer that takes a schema and a data object and
+displays the data guided by the schema (descriptions on hover, enums, formats, keyed lists as tables), and after
+that an editor. Both stand on the same schema model, which is why the model is its own module.
+
+## The Kubernetes entry (`k8s`)
+
+Small by rule (C12). It holds what only Kubernetes knows:
+
+- the kind → icon map (today duplicated between jq `kicon` and the `k8s-resources` library panel), with icon
+  URLs pinned to commits, not `@main` or `@latest`;
+- links to the k8s-* dashboards (`kd-link` targets) and the back chain;
+- mapping an object to generic elements: conditions to `kd-steps`, requests and limits to `kd-meter`,
+  labels and annotations to `kd-groups`, owner references to a breadcrumb chain;
+- the events rendering (Loki kube events folded into `kd-table` and a tab count), replacing the Handlebars helpers;
+- `k8s.css` holding layout specific to the k8s views, if any remains. It holds **no colour literals and no
+  `--kd-*` definitions**, enforced by a test.
+
+The k8s views then stop building HTML in jq (C16). A query returns the API object (or a reshaped slice of it);
+the panel's content is a few elements, and `afterRender` hands them the data.
+
+## The n8n entry (`n8n`)
+
+`mount(config)` does what the chat tile's 22 KB script does today: the head stylesheet, the `#n8n-chat` bubble,
+the navigation watcher that removes it when you leave the dashboard, fitting it to the controls row, live metadata
+getters, the stream filter that turns the agent's dashboard-state chunks into variable changes, applying only the
+`chat_settable` names in order, the state card, and cleaning the loaded history. `mount` is idempotent, because
+the core text panel re-runs its script on every mount.
+
+The library panel keeps only: the tile markup (or a `kd-tile`), a short module script that reads the `chat_*`
+constants and calls `mount`, and the Basic auth header (C18). Its size drops from 50 KB to under 1 KB.
+
+## How a panel uses it
+
+The dashboard's hidden constant `assets` is `https://cdn.jsdelivr.net/npm/@kubed.io/cdn@X.Y.Z/dist`. All
+dashboards should move to a new version together (one shared variable file embedded by each krm-py dashboard
+source), because the first version loaded owns each tag for the page session.
+
+Business Text, high level:
+
+```
+externalStyles: ["${assets}/kd.css"]
+content:        <div class="kd"><kd-schema></kd-schema></div>
+afterRender:    const base = context.grafana.replaceVariables("${assets}")
+                import(base + "/openapi.js").then(m => {
+                  m.applyTheme(context.element, context.grafana.theme)
+                  context.element.querySelector("kd-schema").document = context.data[0]
+                })
+```
+
+## Build, test and release
+
+**Build.** Vite in library mode compiles TypeScript into `dist/`: one ES module per entry, shared chunks, the
+CSS files, and type declarations. `dist/` is gitignored and listed in `package.json` `files`, so it exists only in
+the tarball.
+
+**Test.** `test.yml` runs `npm ci`, a type check, Vitest with happy-dom (elements render from properties and from
+JSON attributes, re-render idempotently and survive a second definition; the schema model against fixtures from
+real CRDs and the cluster's OpenAPI v3), the scoping and no-colour checks on every stylesheet, and the build. A
+size report per entry goes to the job summary.
+
+**Release.** `publish.yml`, dispatched by hand, `push=false` first:
+
+1. **test**, then a build of the tree being released.
+2. **version**: `version-bump` computes the next version, `package.json` (and the lockfile) get it, and
+   `version-bump` commits them with the rolled CHANGELOG and tags, through its `files` input.
+3. **npm**: checks out the tag, builds, and runs `npm publish --provenance --access public` with trusted publishing
+   (`id-token: write`, an `npm` GitHub environment). Pre-release bumps (`prepatch` and the like) publish under the
+   `next` dist-tag, never `latest`.
+4. **release**: the GitHub Release on the tag, its body the notes plus the jsDelivr URL of every entry.
+
+The tag exists before the package does. If the npm job fails, it is re-run against the existing tag; it never
+re-tags.
+
+**Pre-releases are the dev loop.** Nothing in git is servable any more (no committed `dist/`), so trying
+unreleased code in a real Grafana means publishing a pre-release (`0.2.0-rc.0` under `next`) and pointing a probe
+dashboard's `assets` at it. Pre-release versions are as immutable as any other.
+
+**Before the first release:**
+
+- Dr K publishes the first version (`0.0.1`, an empty placeholder or
+  the first build) by hand with `npm publish --access public`.
+- On npmjs.com, the package gets a trusted publisher: repo `kubed-io/cdn`, workflow `publish.yml`, environment `npm`.
+- The repo gets the base tag `v0.0.1` on its initial commit, the repo variables `GCP_WIF_PROVIDER` and
+  `GCP_PROJECT`, and the labels `dependencies`, `github-actions` and `no changelog`.
+- Dependabot gains the `npm` ecosystem.
+
+## Rollout
+
+Each step is shippable on its own and is checked live before the next.
+
+1. **The package.** TypeScript, Vite, Vitest, the CI, the npm prerequisites. Round 1's theme layer ported to
+   `kd` unchanged in behaviour, plus self-theming. First pre-release.
+2. **The chat tile** (`n8n`). One library panel edit moves 14 dashboards, which is the largest reach for the
+   smallest change, and the code is already isolated.
+3. **The schema viewer** (`openapi`), first on k8s-rd, then k8s-crd. Both views' schema panels switch from jq
+   HTML to `kd-schema`.
+4. **The generic elements and `k8s`**, one k8s view at a time, starting with the stylesheet: each view drops its
+   copied `styles` for `kd.css` (and `k8s.css` if needed), then its jq HTML for elements.
 
 ## Acceptance
 
-1. **The tagged files are served correctly.** After the first real release, both `grafana/theme.js` and `grafana/theme.css` at `cdn.jsdelivr.net/gh/kubed-io/cdn@<tag>/` return 200, `cache-control: max-age=31536000, immutable`, `access-control-allow-origin: *`, and a JavaScript or CSS content type.
-2. **The theme layer works in a real dashboard.** A probe dashboard in Grafana, with a unique title and deleted afterwards, holds one Business Text panel wired as above. In a real browser (selenium-flow):
-   - the panel root has every `--kd-*` property set and `data-theme` matching Grafana's theme, in both the dark and the light theme;
-   - a `.kd` table picks up the theme's colours;
-   - no style leaks outside the panel. Compare Grafana's own chrome before and after the stylesheet loads.
-3. **The README documents the convention:** the URL form, the `assets` variable, the property contract and the scoping rule.
+1. **Served correctly.** Every entry and chunk of a release at `cdn.jsdelivr.net/npm/@kubed.io/cdn@<version>/dist/`
+   returns 200, `max-age=31536000, immutable`, `access-control-allow-origin: *` and a JavaScript or CSS content
+   type. The package page shows provenance from `kubed-io/cdn`'s `publish.yml`.
+2. **Theme in a real dashboard.** A probe dashboard (unique title, deleted afterwards) checked in a real browser
+   with selenium-flow: every `--kd-*` property and `data-theme` set in both themes; an element with no
+   `applyTheme` ancestor follows a live theme switch; no style leaks into Grafana's chrome.
+3. **Sharing.** On the probe, three panels importing two entries execute the shared chunk once, in any render order.
+4. **Chat tile.** On one app dashboard, the tile and chat behave as before: the bubble leaves with the dashboard,
+   variables the agent sets apply, the time range moves. The library panel is under 1 KB plus the auth header,
+   and no credential exists anywhere in the repo or the package.
+5. **Schema viewer.** k8s-rd and k8s-crd show every field and keyword they show today for a sample of kinds
+   (Pod, Deployment, the Prometheus CRD), and the Prometheus CRD opens without a visible stall.
+6. **Size.** Each migrated k8s view's dashboard JSON shrinks by at least the bytes of its copied stylesheet.
+7. **The README documents** the URL form, the `assets` variable, each entry, the element rules, the theme
+   contract and the release.
 
 ## Out of scope
 
-- **Moving existing dashboard CSS and JS here,** such as `k8s-view.css` and the `repo-*.js` helpers. Each comes over when its dashboard is rebuilt with the krm-py functions.
-- **Svelte custom elements and Pico CSS,** and the build step they would need.
-- **A custom domain or GitHub Pages.**
-- **Images and icons.** Today's icons come from `cncf/artwork` and `simple-icons` on jsDelivr and can stay there.
+- The schema-plus-data viewer and the editor (designed for; the next round).
+- Moving the k8s and app dashboards themselves into krm-py sources.
+- The repo dashboard's helpers, `marked`/DOMPurify and highlight.js (a later `kd` addition).
+- A custom domain, GitHub Pages, or a Content-Security-Policy.
+- Images and icons themselves; icons stay on `cncf/artwork` and `simple-icons`, pinned.
