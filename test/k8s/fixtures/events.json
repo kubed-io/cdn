@@ -1,0 +1,174 @@
+{
+  "now": 1791366721000,
+  "frames": [
+    [
+      {
+        "section": "head",
+        "key": "web",
+        "html": ""
+      }
+    ],
+    [
+      {
+        "labels": {
+          "instance": "loki.source.kubernetes_events.cluster",
+          "job": "integrations/kubernetes/eventhandler",
+          "kube_event": "true",
+          "logtype": "kubernetes_events",
+          "namespace": "shop",
+          "objectAPIversion": "v1",
+          "reportingcontroller": "kubelet",
+          "sourcecomponent": "kubelet",
+          "reason": "Started",
+          "kind": "Pod",
+          "name": "web-5c57db9dff-6fkrm",
+          "service_name": "web-5c57db9dff-6fkrm"
+        },
+        "Time": 1791366661000,
+        "Line": "Container started",
+        "tsNs": "1791366661000000000",
+        "id": "1791366661000_03a62c89"
+      },
+      {
+        "labels": {
+          "instance": "loki.source.kubernetes_events.cluster",
+          "job": "integrations/kubernetes/eventhandler",
+          "kube_event": "true",
+          "logtype": "kubernetes_events",
+          "namespace": "shop",
+          "objectAPIversion": "v1",
+          "reportingcontroller": "kubelet",
+          "sourcecomponent": "kubelet",
+          "reason": "Pulled",
+          "kind": "Pod",
+          "name": "web-5c57db9dff-6fkrm",
+          "service_name": "web-5c57db9dff-6fkrm"
+        },
+        "Time": 1791366660000,
+        "Line": "Successfully pulled image \"ghcr.io/example/shop:2.21.0\" in 517ms (518ms including waiting). Image size: 91396409 bytes.",
+        "tsNs": "1791366660000000000",
+        "id": "1791366660000_04f9e8a7"
+      },
+      {
+        "labels": {
+          "instance": "loki.source.kubernetes_events.cluster",
+          "job": "integrations/kubernetes/eventhandler",
+          "kube_event": "true",
+          "logtype": "kubernetes_events",
+          "namespace": "shop",
+          "objectAPIversion": "v1",
+          "reportingcontroller": "kubelet",
+          "sourcecomponent": "kubelet",
+          "reason": "Created",
+          "kind": "Pod",
+          "name": "web-5c57db9dff-6fkrm",
+          "service_name": "web-5c57db9dff-6fkrm"
+        },
+        "Time": 1791366660000,
+        "Line": "Container created",
+        "tsNs": "1791366660000000000",
+        "id": "1791366660000_0027b95c"
+      },
+      {
+        "labels": {
+          "instance": "loki.source.kubernetes_events.cluster",
+          "job": "integrations/kubernetes/eventhandler",
+          "kube_event": "true",
+          "logtype": "kubernetes_events",
+          "namespace": "shop",
+          "objectAPIversion": "v1",
+          "reportingcontroller": "kubelet",
+          "sourcecomponent": "kubelet",
+          "reason": "BackOff",
+          "kind": "Pod",
+          "name": "web-5c57db9dff-6fkrm",
+          "service_name": "web-5c57db9dff-6fkrm"
+        },
+        "Time": 1791366631000,
+        "Line": "Back-off restarting failed container web in pod web-5c57db9dff-6fkrm_shop(10000000-0000-0000-0000-000000000001)",
+        "tsNs": "1791366631000000000",
+        "id": "1791366631000_05539c07"
+      },
+      {
+        "labels": {
+          "instance": "loki.source.kubernetes_events.cluster",
+          "job": "integrations/kubernetes/eventhandler",
+          "kube_event": "true",
+          "logtype": "kubernetes_events",
+          "namespace": "shop",
+          "objectAPIversion": "v1",
+          "reportingcontroller": "kubelet",
+          "sourcecomponent": "kubelet",
+          "reason": "BackOff",
+          "kind": "Pod",
+          "name": "web-5c57db9dff-6fkrm",
+          "service_name": "web-5c57db9dff-6fkrm"
+        },
+        "Time": 1791366571000,
+        "Line": "Back-off restarting failed container web in pod web-5c57db9dff-6fkrm_shop(10000000-0000-0000-0000-000000000001)",
+        "tsNs": "1791366571000000000",
+        "id": "1791366571000_05539c07"
+      },
+      {
+        "labels": {
+          "instance": "loki.source.kubernetes_events.cluster",
+          "job": "integrations/kubernetes/eventhandler",
+          "kube_event": "true",
+          "logtype": "kubernetes_events",
+          "namespace": "shop",
+          "objectAPIversion": "v1",
+          "reportingcontroller": "kubelet",
+          "sourcecomponent": "kubelet",
+          "reason": "BackOff",
+          "kind": "Pod",
+          "name": "web-5c57db9dff-6fkrm",
+          "service_name": "web-5c57db9dff-6fkrm"
+        },
+        "Time": 1791363061000,
+        "Line": "Back-off restarting failed container web in pod web-5c57db9dff-6fkrm_shop(10000000-0000-0000-0000-000000000001)",
+        "tsNs": "1791363061000000000",
+        "id": "1791363061000_05539c07"
+      },
+      {
+        "labels": {
+          "instance": "loki.source.kubernetes_events.cluster",
+          "job": "integrations/kubernetes/eventhandler",
+          "kube_event": "true",
+          "logtype": "kubernetes_events",
+          "namespace": "shop",
+          "objectAPIversion": "apps/v1",
+          "reportingcontroller": "deployment-controller",
+          "sourcecomponent": "deployment-controller",
+          "reason": "ScalingReplicaSet",
+          "kind": "Deployment",
+          "name": "web",
+          "service_name": "web"
+        },
+        "Time": 1791359461000,
+        "Line": "Scaled up replica set web-5c57db9dff from 0 to 1",
+        "tsNs": "1791359461000000000",
+        "id": "1791359461000_05368404"
+      },
+      {
+        "labels": {
+          "instance": "loki.source.kubernetes_events.cluster",
+          "job": "integrations/kubernetes/eventhandler",
+          "kube_event": "true",
+          "logtype": "kubernetes_events",
+          "namespace": "shop",
+          "objectAPIversion": "apps/v1",
+          "reportingcontroller": "replicaset-controller",
+          "sourcecomponent": "replicaset-controller",
+          "reason": "SuccessfulCreate",
+          "kind": "ReplicaSet",
+          "name": "web-5c57db9dff",
+          "service_name": "web-5c57db9dff"
+        },
+        "Time": 1791359461000,
+        "Line": "Created pod: web-5c57db9dff-6fkrm",
+        "tsNs": "1791359461000000000",
+        "id": "1791359461000_0596569f"
+      }
+    ]
+  ]
+}

@@ -10,9 +10,9 @@ describe('kd-sheet', () => {
   afterEach(() => document.body.replaceChildren());
 
   it('renders a plain object from the data attribute', async () => {
-    const el = await mount<KdSheet>(`<kd-sheet data='{"Node":"puffer","Restarts":0,"IP":null}'></kd-sheet>`);
+    const el = await mount<KdSheet>(`<kd-sheet data='{"Node":"node-1","Restarts":0,"IP":null}'></kd-sheet>`);
     expect(pairs(el)).toEqual([
-      ['Node', 'puffer'],
+      ['Node', 'node-1'],
       ['Restarts', '0'],
     ]);
   });

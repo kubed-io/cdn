@@ -1,0 +1,268 @@
+{
+  "apiVersion": "v1",
+  "kind": "Node",
+  "metadata": {
+    "annotations": {
+      "alpha.kubernetes.io/provided-node-ip": "10.0.0.44",
+      "flannel.alpha.coreos.com/backend-type": "vxlan",
+      "flannel.alpha.coreos.com/kube-subnet-manager": "true",
+      "flannel.alpha.coreos.com/public-ip": "10.0.0.44",
+      "k3s.io/hostname": "node-5",
+      "k3s.io/internal-ip": "10.0.0.44",
+      "node.alpha.kubernetes.io/ttl": "0",
+      "volumes.kubernetes.io/controller-managed-attach-detach": "true"
+    },
+    "creationTimestamp": "2025-08-23T21:30:26Z",
+    "finalizers": [
+      "wrangler.cattle.io/node",
+      "wrangler.cattle.io/managed-etcd-controller"
+    ],
+    "labels": {
+      "beta.kubernetes.io/arch": "amd64",
+      "beta.kubernetes.io/instance-type": "k3s",
+      "beta.kubernetes.io/os": "linux",
+      "kubernetes.io/arch": "amd64",
+      "kubernetes.io/hostname": "node-5",
+      "kubernetes.io/os": "linux",
+      "node-role.kubernetes.io/apps": "true",
+      "node.kubernetes.io/instance-type": "k3s",
+      "smarter-device-manager": "enabled",
+      "synology-csi": "enabled",
+      "vpn": "enabled"
+    },
+    "name": "node-5",
+    "resourceVersion": "297768981",
+    "uid": "10000000-0000-0000-0000-000000000003"
+  },
+  "spec": {
+    "podCIDR": "10.42.3.0/24"
+  },
+  "status": {
+    "addresses": [
+      {
+        "address": "10.0.0.44",
+        "type": "InternalIP"
+      },
+      {
+        "address": "node-5",
+        "type": "Hostname"
+      }
+    ],
+    "allocatable": {
+      "cpu": "8",
+      "ephemeral-storage": "99834798412",
+      "hugepages-1Gi": "0",
+      "hugepages-2Mi": "0",
+      "memory": "15793572Ki",
+      "pods": "110",
+      "smarter-devices/i2c-0": "1",
+      "smarter-devices/i2c-1": "1",
+      "smarter-devices/i2c-10": "1",
+      "smarter-devices/i2c-11": "1",
+      "smarter-devices/i2c-12": "1",
+      "smarter-devices/i2c-2": "1",
+      "smarter-devices/i2c-3": "1",
+      "smarter-devices/i2c-4": "1",
+      "smarter-devices/i2c-5": "1",
+      "smarter-devices/i2c-6": "1",
+      "smarter-devices/i2c-7": "1",
+      "smarter-devices/i2c-8": "1",
+      "smarter-devices/i2c-9": "1",
+      "smarter-devices/net": "20",
+      "smarter-devices/rtc0": "20",
+      "smarter-devices/snd": "20",
+      "smarter-devices/sr0": "20",
+      "smarter-devices/ttyS0": "1",
+      "smarter-devices/ttyS1": "1",
+      "smarter-devices/ttyS10": "1",
+      "smarter-devices/ttyS11": "1",
+      "smarter-devices/ttyS12": "1",
+      "smarter-devices/ttyS13": "1",
+      "smarter-devices/ttyS14": "1",
+      "smarter-devices/ttyS15": "1",
+      "smarter-devices/ttyS16": "1",
+      "smarter-devices/ttyS17": "1",
+      "smarter-devices/ttyS18": "1",
+      "smarter-devices/ttyS19": "1",
+      "smarter-devices/ttyS2": "1",
+      "smarter-devices/ttyS20": "1",
+      "smarter-devices/ttyS21": "1",
+      "smarter-devices/ttyS22": "1",
+      "smarter-devices/ttyS23": "1",
+      "smarter-devices/ttyS24": "1",
+      "smarter-devices/ttyS25": "1",
+      "smarter-devices/ttyS26": "1",
+      "smarter-devices/ttyS27": "1",
+      "smarter-devices/ttyS28": "1",
+      "smarter-devices/ttyS29": "1",
+      "smarter-devices/ttyS3": "1",
+      "smarter-devices/ttyS30": "1",
+      "smarter-devices/ttyS31": "1",
+      "smarter-devices/ttyS4": "1",
+      "smarter-devices/ttyS5": "1",
+      "smarter-devices/ttyS6": "1",
+      "smarter-devices/ttyS7": "1",
+      "smarter-devices/ttyS8": "1",
+      "smarter-devices/ttyS9": "1"
+    },
+    "capacity": {
+      "cpu": "8",
+      "ephemeral-storage": "102626232Ki",
+      "hugepages-1Gi": "0",
+      "hugepages-2Mi": "0",
+      "memory": "15793572Ki",
+      "pods": "110",
+      "smarter-devices/i2c-0": "1",
+      "smarter-devices/i2c-1": "1",
+      "smarter-devices/i2c-10": "1",
+      "smarter-devices/i2c-11": "1",
+      "smarter-devices/i2c-12": "1",
+      "smarter-devices/i2c-2": "1",
+      "smarter-devices/i2c-3": "1",
+      "smarter-devices/i2c-4": "1",
+      "smarter-devices/i2c-5": "1",
+      "smarter-devices/i2c-6": "1",
+      "smarter-devices/i2c-7": "1",
+      "smarter-devices/i2c-8": "1",
+      "smarter-devices/i2c-9": "1",
+      "smarter-devices/net": "20",
+      "smarter-devices/rtc0": "20",
+      "smarter-devices/snd": "20",
+      "smarter-devices/sr0": "20",
+      "smarter-devices/ttyS0": "1",
+      "smarter-devices/ttyS1": "1",
+      "smarter-devices/ttyS10": "1",
+      "smarter-devices/ttyS11": "1",
+      "smarter-devices/ttyS12": "1",
+      "smarter-devices/ttyS13": "1",
+      "smarter-devices/ttyS14": "1",
+      "smarter-devices/ttyS15": "1",
+      "smarter-devices/ttyS16": "1",
+      "smarter-devices/ttyS17": "1",
+      "smarter-devices/ttyS18": "1",
+      "smarter-devices/ttyS19": "1",
+      "smarter-devices/ttyS2": "1",
+      "smarter-devices/ttyS20": "1",
+      "smarter-devices/ttyS21": "1",
+      "smarter-devices/ttyS22": "1",
+      "smarter-devices/ttyS23": "1",
+      "smarter-devices/ttyS24": "1",
+      "smarter-devices/ttyS25": "1",
+      "smarter-devices/ttyS26": "1",
+      "smarter-devices/ttyS27": "1",
+      "smarter-devices/ttyS28": "1",
+      "smarter-devices/ttyS29": "1",
+      "smarter-devices/ttyS3": "1",
+      "smarter-devices/ttyS30": "1",
+      "smarter-devices/ttyS31": "1",
+      "smarter-devices/ttyS4": "1",
+      "smarter-devices/ttyS5": "1",
+      "smarter-devices/ttyS6": "1",
+      "smarter-devices/ttyS7": "1",
+      "smarter-devices/ttyS8": "1",
+      "smarter-devices/ttyS9": "1"
+    },
+    "conditions": [
+      {
+        "lastHeartbeatTime": "2026-10-07T22:38:29Z",
+        "lastTransitionTime": "2026-09-21T20:13:05Z",
+        "message": "kubelet has sufficient memory available",
+        "reason": "KubeletHasSufficientMemory",
+        "status": "False",
+        "type": "MemoryPressure"
+      },
+      {
+        "lastHeartbeatTime": "2026-10-07T22:38:29Z",
+        "lastTransitionTime": "2026-09-21T20:13:05Z",
+        "message": "kubelet has no disk pressure",
+        "reason": "KubeletHasNoDiskPressure",
+        "status": "False",
+        "type": "DiskPressure"
+      },
+      {
+        "lastHeartbeatTime": "2026-10-07T22:38:29Z",
+        "lastTransitionTime": "2026-09-21T20:13:05Z",
+        "message": "kubelet has sufficient PID available",
+        "reason": "KubeletHasSufficientPID",
+        "status": "False",
+        "type": "PIDPressure"
+      },
+      {
+        "lastHeartbeatTime": "2026-10-07T22:38:29Z",
+        "lastTransitionTime": "2026-09-21T20:13:05Z",
+        "message": "kubelet is posting ready status",
+        "reason": "KubeletReady",
+        "status": "True",
+        "type": "Ready"
+      }
+    ],
+    "daemonEndpoints": {
+      "kubeletEndpoint": {
+        "Port": 10250
+      }
+    },
+    "declaredFeatures": [
+      "ExtendWebSocketsToKubelet",
+      "InPlacePodLevelResourcesVerticalScaling",
+      "InPlacePodVerticalScalingInitContainers",
+      "RestartAllContainersOnContainerExits"
+    ],
+    "features": {
+      "supplementalGroupsPolicy": true
+    },
+    "images": [
+      {
+        "names": [
+          "docker.io/grafana/grafana@sha256:f772d434e8fab0049deb2b1b30abd43342bcfca1537614aa8d36080232cf4283",
+          "docker.io/grafana/grafana:13.2.1"
+        ],
+        "sizeBytes": 473929177
+      },
+      {
+        "names": [
+          "docker.io/bubuntux/nordvpn@sha256:ac521b5a8d1387780d812a0ed46dd23aa3ee5e47d6d9f9eace39213ea1f56509",
+          "docker.io/bubuntux/nordvpn:latest"
+        ],
+        "sizeBytes": 418371620
+      }
+    ],
+    "nodeInfo": {
+      "architecture": "amd64",
+      "bootID": "00000000000000000000000000000000",
+      "containerRuntimeVersion": "containerd://2.3.4-k3s1.36",
+      "kernelVersion": "7.0.0-31-generic",
+      "kubeProxyVersion": "",
+      "kubeletVersion": "v1.36.4+k3s1",
+      "machineID": "00000000000000000000000000000000",
+      "operatingSystem": "linux",
+      "osImage": "Ubuntu 26.04.1 LTS",
+      "swap": {
+        "capacity": 4294963200
+      },
+      "systemUUID": "00000000000000000000000000000000"
+    },
+    "runtimeHandlers": [
+      {
+        "features": {
+          "recursiveReadOnlyMounts": true,
+          "userNamespaces": true
+        },
+        "name": ""
+      },
+      {
+        "features": {
+          "recursiveReadOnlyMounts": true,
+          "userNamespaces": true
+        },
+        "name": "runc"
+      },
+      {
+        "features": {
+          "recursiveReadOnlyMounts": false,
+          "userNamespaces": false
+        },
+        "name": "runhcs-wcow-process"
+      }
+    ]
+  }
+}

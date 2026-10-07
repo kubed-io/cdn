@@ -1,0 +1,273 @@
+{
+  "apiVersion": "apps/v1",
+  "kind": "ReplicaSet",
+  "metadata": {
+    "annotations": {
+      "deployment.kubernetes.io/desired-replicas": "1",
+      "deployment.kubernetes.io/max-replicas": "2",
+      "deployment.kubernetes.io/revision": "2"
+    },
+    "creationTimestamp": "2026-09-30T01:26:26Z",
+    "generation": 1,
+    "labels": {
+      "app": "web",
+      "app.kubernetes.io/component": "operator",
+      "app.kubernetes.io/instance": "shop",
+      "app.kubernetes.io/managed-by": "Helm",
+      "app.kubernetes.io/name": "web",
+      "app.kubernetes.io/part-of": "web",
+      "app.kubernetes.io/version": "2.21.0",
+      "helm.sh/chart": "shop-2.21.0",
+      "name": "web",
+      "pod-template-hash": "5c57db9dff"
+    },
+    "name": "web-5c57db9dff",
+    "namespace": "shop",
+    "ownerReferences": [
+      {
+        "apiVersion": "apps/v1",
+        "blockOwnerDeletion": true,
+        "controller": true,
+        "kind": "Deployment",
+        "name": "web",
+        "uid": "10000000-0000-0000-0000-000000000002"
+      }
+    ],
+    "resourceVersion": "297259306",
+    "uid": "10000000-0000-0000-0000-000000000000"
+  },
+  "spec": {
+    "replicas": 1,
+    "selector": {
+      "matchLabels": {
+        "app": "web",
+        "pod-template-hash": "5c57db9dff"
+      }
+    },
+    "template": {
+      "metadata": {
+        "labels": {
+          "app": "web",
+          "app.kubernetes.io/component": "operator",
+          "app.kubernetes.io/instance": "shop",
+          "app.kubernetes.io/managed-by": "Helm",
+          "app.kubernetes.io/name": "web",
+          "app.kubernetes.io/part-of": "web",
+          "app.kubernetes.io/version": "2.21.0",
+          "helm.sh/chart": "shop-2.21.0",
+          "name": "web",
+          "pod-template-hash": "5c57db9dff"
+        }
+      },
+      "spec": {
+        "automountServiceAccountToken": true,
+        "containers": [
+          {
+            "args": [
+              "--leader-elect",
+              "--disable-compression=true",
+              "--zap-log-level=info",
+              "--zap-encoder=console",
+              "--zap-time-encoding=rfc3339",
+              "--enable-webhook-patching=true",
+              "--cert-dir=/certs",
+              "--enable-cert-rotation=true",
+              "--cert-secret-name=weborg-certs",
+              "--operator-service-name=web",
+              "--metrics-service-bind-address=:9666",
+              "--metrics-server-service-name=web-metrics-apiserver",
+              "--webhooks-service-name=shop-admission-webhooks",
+              "--k8s-cluster-name=homelab",
+              "--k8s-cluster-domain=cluster.local",
+              "--enable-prometheus-metrics=false",
+              "--http-max-idle-conns=0",
+              "--http-max-idle-conns-per-host=1000",
+              "--http-idle-conn-timeout=90s",
+              "--service-account-token-mode=enforce-audience",
+              "--vault-kubernetes-auth-token-file=/var/run/secrets/shop-vault/token"
+            ],
+            "command": [
+              "/shop"
+            ],
+            "env": [
+              {
+                "name": "WEB_SERVICE_ACCOUNT_TOKEN_AUDIENCES",
+                "value": "[{\"audience\":\"vault\"}]"
+              },
+              {
+                "name": "WATCH_NAMESPACE"
+              },
+              {
+                "name": "WATCH_LABEL_SELECTOR"
+              },
+              {
+                "name": "WATCH_LABEL_SELECTOR_FOR_TRIGGERAUTH"
+              },
+              {
+                "name": "POD_NAME",
+                "valueFrom": {
+                  "fieldRef": {
+                    "apiVersion": "v1",
+                    "fieldPath": "metadata.name"
+                  }
+                }
+              },
+              {
+                "name": "POD_NAMESPACE",
+                "valueFrom": {
+                  "fieldRef": {
+                    "apiVersion": "v1",
+                    "fieldPath": "metadata.namespace"
+                  }
+                }
+              },
+              {
+                "name": "OPERATOR_NAME",
+                "value": "web"
+              },
+              {
+                "name": "WEB_HTTP_DEFAULT_TIMEOUT",
+                "value": "3000"
+              },
+              {
+                "name": "WEB_KUBERNETES_API_TIMEOUT",
+                "value": "5s"
+              },
+              {
+                "name": "WEB_HTTP_MIN_TLS_VERSION",
+                "value": "TLS12"
+              },
+              {
+                "name": "WEB_HTTP_TLS_CIPHER_LIST"
+              },
+              {
+                "name": "WEB_SERVICE_MIN_TLS_VERSION",
+                "value": "TLS13"
+              },
+              {
+                "name": "WEB_SERVICE_TLS_CIPHER_LIST"
+              }
+            ],
+            "image": "ghcr.io/example/shop:2.21.0",
+            "imagePullPolicy": "Always",
+            "livenessProbe": {
+              "failureThreshold": 3,
+              "httpGet": {
+                "path": "/healthz",
+                "port": 8081,
+                "scheme": "HTTP"
+              },
+              "initialDelaySeconds": 25,
+              "periodSeconds": 10,
+              "successThreshold": 1,
+              "timeoutSeconds": 1
+            },
+            "name": "web",
+            "ports": [
+              {
+                "containerPort": 9666,
+                "name": "metricsservice",
+                "protocol": "TCP"
+              }
+            ],
+            "readinessProbe": {
+              "failureThreshold": 3,
+              "httpGet": {
+                "path": "/readyz",
+                "port": 8081,
+                "scheme": "HTTP"
+              },
+              "initialDelaySeconds": 20,
+              "periodSeconds": 3,
+              "successThreshold": 1,
+              "timeoutSeconds": 1
+            },
+            "resources": {
+              "limits": {
+                "cpu": "1",
+                "memory": "512Mi"
+              },
+              "requests": {
+                "cpu": "100m",
+                "memory": "128Mi"
+              }
+            },
+            "securityContext": {
+              "allowPrivilegeEscalation": false,
+              "capabilities": {
+                "drop": [
+                  "ALL"
+                ]
+              },
+              "readOnlyRootFilesystem": true,
+              "seccompProfile": {
+                "type": "RuntimeDefault"
+              }
+            },
+            "terminationMessagePath": "/dev/termination-log",
+            "terminationMessagePolicy": "File",
+            "volumeMounts": [
+              {
+                "mountPath": "/var/run/secrets/shop-vault",
+                "name": "shop-vault-e6f0a1fbb43c8919",
+                "readOnly": true
+              },
+              {
+                "mountPath": "/certs",
+                "name": "certificates",
+                "readOnly": true
+              }
+            ]
+          }
+        ],
+        "dnsPolicy": "ClusterFirst",
+        "enableServiceLinks": true,
+        "nodeSelector": {
+          "kubernetes.io/os": "linux",
+          "node-role.kubernetes.io/operator": "true"
+        },
+        "restartPolicy": "Always",
+        "schedulerName": "default-scheduler",
+        "securityContext": {
+          "runAsNonRoot": true
+        },
+        "serviceAccount": "web",
+        "serviceAccountName": "web",
+        "terminationGracePeriodSeconds": 30,
+        "volumes": [
+          {
+            "name": "shop-vault-e6f0a1fbb43c8919",
+            "projected": {
+              "defaultMode": 420,
+              "sources": [
+                {
+                  "serviceAccountToken": {
+                    "audience": "vault",
+                    "expirationSeconds": 3600,
+                    "path": "token"
+                  }
+                }
+              ]
+            }
+          },
+          {
+            "name": "certificates",
+            "secret": {
+              "defaultMode": 420,
+              "optional": true,
+              "secretName": "weborg-certs"
+            }
+          }
+        ]
+      }
+    }
+  },
+  "status": {
+    "availableReplicas": 1,
+    "fullyLabeledReplicas": 1,
+    "observedGeneration": 1,
+    "readyReplicas": 1,
+    "replicas": 1,
+    "terminatingReplicas": 0
+  }
+}

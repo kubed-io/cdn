@@ -22,8 +22,8 @@ describe('linkUrl', () => {
 
   it('keeps the time range of the current page', () => {
     at(POD);
-    expect(linkUrl({ dashboard: 'k8s-node', vars: { node: 'puffer' } }, window)).toBe(
-      '/d/k8s-node?var-node=puffer&from=now-6h&to=now',
+    expect(linkUrl({ dashboard: 'k8s-node', vars: { node: 'node-1' } }, window)).toBe(
+      '/d/k8s-node?var-node=node-1&from=now-6h&to=now',
     );
   });
 
@@ -84,10 +84,10 @@ describe('kd-link', () => {
     const el = await mount<KdLink>(`<kd-link dashboard="ignored" data='{"dashboard":"k8s-ns","text":"default"}'></kd-link>`);
     expect(href(el)).toBe('/d/k8s-ns');
     expect(shadow(el).textContent).toContain('default');
-    await update(el, { data: { dashboard: 'k8s-node', text: 'puffer', title: 'Node' } });
+    await update(el, { data: { dashboard: 'k8s-node', text: 'node-1', title: 'Node' } });
     expect(href(el)).toBe('/d/k8s-node');
     expect(shadow(el).querySelector('a')?.getAttribute('title')).toBe('Node');
-    expect(shadow(el).textContent).toContain('puffer');
+    expect(shadow(el).textContent).toContain('node-1');
   });
 
   it('is plain text without a target', async () => {

@@ -15,7 +15,7 @@ export type SheetData = SheetRow[] | Record<string, Cell>;
 /**
  * A two-column property sheet. A row whose value is empty is left out.
  *
- * `el.data = [{ key: 'Node', value: 'puffer' }, { key: 'Phase', value: { text: 'Running', tone: 'success' } }]`
+ * `el.data = [{ key: 'Node', value: 'node-1' }, { key: 'Phase', value: { text: 'Running', tone: 'success' } }]`
  */
 export class KdSheet extends KdElement {
   static override properties = { data: { attribute: 'data', converter: json } };
