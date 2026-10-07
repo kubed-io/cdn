@@ -59,8 +59,11 @@ export class KdTable extends KdElement {
       .right {
         text-align: right;
       }
+      /* Prose breaks anywhere so one hash in a message cannot widen the table;
+         links keep whole words and stop at 40ch with an ellipsis instead. */
       td {
         --kd-link-max: 40ch;
+        overflow-wrap: anywhere;
       }
       .nowrap {
         white-space: nowrap;

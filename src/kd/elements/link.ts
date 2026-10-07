@@ -206,7 +206,11 @@ export class KdLink extends KdElement {
   override render() {
     const link = this.link;
     const url = linkUrl(link, this.ownerDocument?.defaultView);
-    const body = html`${renderIcon(link.icon)}<span class="text"><slot>${link.text ?? ''}</slot></span>`;
+    // The text carries its full self on hover (it may be cut short); the link's
+    // own title (a kind, say) shows over the icon.
+    const body = html`${renderIcon(link.icon)}<span class="text" title=${ifDefined(link.text)}
+      ><slot>${link.text ?? ''}</slot></span
+    >`;
     const title = link.title ?? link.text;
     if (url === undefined) return html`<span class="link" title=${ifDefined(title)}>${body}</span>`;
     return html`<a
