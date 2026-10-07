@@ -1,0 +1,24 @@
+<!-- Library panel "n8n chat tile" (a core text panel in the always-visible header row).
+     Configured by the dashboard's hidden constants: assets, chat_icon, chat_label, chat_link,
+     chat_webhook, chat_title, chat_subtitle, chat_greeting, chat_context, chat_settable,
+     chat_groups, chat_stream. Replace the auth placeholder in Grafana only. -->
+<a class="n8n-chat-tile" id="n8n-chat-tile"><div class="icon"></div><div class="label"></div></a>
+<script type="module">
+  const v = (s) => { try { return decodeURIComponent(s); } catch (e) { return s; } };
+  const { mount } = await import('${assets}/n8n.js');
+  mount({
+    icon: v('${chat_icon:percentencode}'),
+    label: v('${chat_label:percentencode}'),
+    link: v('${chat_link:percentencode}'),
+    webhook: v('${chat_webhook:percentencode}'),
+    title: v('${chat_title:percentencode}'),
+    subtitle: v('${chat_subtitle:percentencode}'),
+    greeting: v('${chat_greeting:percentencode}'),
+    context: v('${chat_context:percentencode}'),
+    settable: v('${chat_settable:percentencode}'),
+    groups: v('${chat_groups:percentencode}'),
+    stream: v('${chat_stream:percentencode}'),
+    user: v('${__user.login:percentencode}'),
+    auth: 'Basic <N8N_BASIC_AUTH>',
+  });
+</script>

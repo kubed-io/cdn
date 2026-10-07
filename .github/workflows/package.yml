@@ -105,16 +105,11 @@ jobs:
       run: |
         mkdir -p /tmp/verify
         tar -xzf "pkg/$TARBALL" -C /tmp/verify
-        for f in dist/kd.js dist/kd.css; do
+        for f in dist/kd.js dist/kd.css dist/openapi.js dist/k8s.js dist/n8n.js; do
           test -s "/tmp/verify/package/$f" || { echo "::error::$f is missing from the tarball"; exit 1; }
         done
-        node --input-type=module -e "
-          const m = await import('/tmp/verify/package/dist/kd.js');
-          for (const name of ['applyTheme', 'followTheme', 'define']) {
-            if (typeof m[name] !== 'function') throw new Error(name + ' is not exported');
-          }
-          if (m.VERSION !== process.env.VERSION) throw new Error('built as ' + m.VERSION + ', package.json says ' + process.env.VERSION);
-        "
+        # The modules need a DOM, so they are loaded under Vitest's happy-dom.
+        KD_DIST=/tmp/verify/package/dist KD_VERSION="$VERSION" npx vitest run test/dist
 
     - name: Upload Package
       uses: actions/upload-artifact@v7

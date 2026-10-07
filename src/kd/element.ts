@@ -56,9 +56,9 @@ export function themedAncestor(element: Element): Element | null {
  * nothing lives only in an element (Business Text recreates them whenever the
  * panel's HTML changes).
  *
- * An element with no themed ancestor themes itself from Grafana's runtime and
- * follows a live theme switch; under a panel root that `applyTheme` already
- * themed, it simply inherits.
+ * A top-level element with no themed ancestor themes itself from Grafana's
+ * runtime and follows a live theme switch; under a panel root that `applyTheme`
+ * already themed, or inside another element's shadow root, it simply inherits.
  */
 export class KdElement extends LitElement {
   static override styles: CSSResultGroup = base;
@@ -68,7 +68,8 @@ export class KdElement extends LitElement {
 
   override connectedCallback(): void {
     super.connectedCallback();
-    if (themedAncestor(this)) return;
+    // Inside another kd element's shadow root, the outer one carries the theme.
+    if (themedAncestor(this) || this.getRootNode() instanceof ShadowRoot) return;
     const ticket = ++this.#following;
     void followTheme(this).then((stop) => {
       if (ticket === this.#following && this.isConnected) this.#stop = stop;

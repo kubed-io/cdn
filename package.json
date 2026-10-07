@@ -18,13 +18,26 @@
       "types": "./dist/kd/index.d.ts",
       "default": "./dist/kd.js"
     },
+    "./openapi.js": {
+      "types": "./dist/openapi/index.d.ts",
+      "default": "./dist/openapi.js"
+    },
+    "./k8s.js": {
+      "types": "./dist/k8s/index.d.ts",
+      "default": "./dist/k8s.js"
+    },
+    "./n8n.js": {
+      "types": "./dist/n8n/index.d.ts",
+      "default": "./dist/n8n.js"
+    },
     "./kd.css": "./dist/kd.css"
   },
   "scripts": {
     "build": "vite build && tsc -p tsconfig.build.json",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "prepublishOnly": "npm run typecheck && npm test && npm run build"
+    "prepublishOnly": "npm run typecheck && npm test && npm run build",
+    "build:probe": "node scripts/probe.mjs"
   },
   "publishConfig": {
     "access": "public"
