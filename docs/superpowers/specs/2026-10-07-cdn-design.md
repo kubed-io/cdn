@@ -270,25 +270,29 @@ afterRender:    const base = context.grafana.replaceVariables("${assets}")
 CSS files, and type declarations. `dist/` is gitignored and listed in `package.json` `files`, so it exists only in
 the tarball.
 
-**Test.** `test.yml` runs `npm ci`, a type check, Vitest with happy-dom (elements render from properties and from
-JSON attributes, re-render idempotently and survive a second definition; the schema model against fixtures from
-real CRDs and the cluster's OpenAPI v3), the scoping and no-colour checks on every stylesheet, and the build. A
-size report per entry goes to the job summary.
+**Test.** `test.yml` runs `npm ci`, a type check, and Vitest with happy-dom (elements render from properties and
+from JSON attributes, re-render idempotently and survive a second definition; the schema model against fixtures
+from real CRDs and the cluster's OpenAPI v3), plus the scoping and no-colour checks on every stylesheet.
 
-**Release.** `publish.yml`, dispatched by hand, `push=false` first:
+**Package.** `package.yml`, like krm-py's, builds and `npm pack`s the tarball, checks that every entry is in it and
+loads with the right version, uploads it as an artifact, and reports sizes per file. It runs on pull requests, on
+`main`, and from `publish.yml` with the release tag.
 
-1. **test**, then a build of the tree being released.
+**Release.** `publish.yml` is the same manual flow as krm-py and selenium-flow: `workflow_dispatch` with `action`
+(patch, minor, major or a pre-release) and `push` (false first, for a dry run). Nothing publishes on a push to `main`.
+
+1. **test**: `test.yml`.
 2. **version**: `package.json` is the source of truth, as in `duplocloud/version-bump`'s own `publish.yml`.
    `npm version <action> --no-git-tag-version` computes the next version and rewrites `package.json` and the
    lockfile; `version-bump` is handed that exact version and commits both (its `files` input) with the rolled
-   CHANGELOG, then tags.
-3. **npm**: checks out the tag, builds, and runs `npm publish --provenance --access public` with trusted publishing
-   (`id-token: write`, an `npm` GitHub environment). Pre-release bumps (`prepatch` and the like) publish under the
-   `next` dist-tag, never `latest`.
-4. **release**: the GitHub Release on the tag, its body the notes plus the jsDelivr URL of every entry.
+   CHANGELOG, then tags. The App token comes from the org's `GH_CLIENT_ID` and `GH_APP_KEY`.
+3. **package**: `package.yml` at the new tag.
+4. **npm**: publishes that tarball with `--provenance`, tokenless through npm trusted publishing (`id-token: write`,
+   the `npm` environment). Pre-release versions go under the `next` dist-tag, never `latest`.
+5. **release**: the GitHub Release on the tag, with the tarball attached and the jsDelivr URL of every entry.
 
-The tag exists before the package does. If the npm job fails, it is re-run against the existing tag; it never
-re-tags.
+The tag exists before the package does. If the npm job fails, it is re-run; it publishes the artifact already
+built from the tag and never re-tags.
 
 **Pre-releases are the dev loop.** Nothing in git is servable any more (no committed `dist/`), so trying
 unreleased code in a real Grafana means publishing a pre-release (`0.2.0-rc.0` under `next`) and pointing a probe

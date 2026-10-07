@@ -1,33 +1,31 @@
 name: 🧬 Publish Version
 
-# Manual, intentional release. Each job owns exactly one thing and hands the next
-# a clean input:
+# Manual, intentional release, the same flow as krm-py and selenium-flow. Each
+# job owns one thing, ordered so nothing outward-facing happens until every
+# artifact it refers to exists:
 #
-#   test    → typecheck, Vitest, build. Gates everything: a published version
-#             is permanent at npm and jsDelivr, so the cheapest place to find a
-#             broken asset is before one exists.
+#   test    → typecheck and Vitest; gates everything below
 #   version → `npm version` bumps package.json, then version-bump rolls
-#             CHANGELOG [Unreleased], commits both + tags on main. The ONLY job that writes a
-#             file or a tag; it emits the tag consumed downstream.
-#   npm     → build the tag and `npm publish` it, tokenless (npm trusted
-#             publishing over OIDC) and with provenance. dist/ is never
-#             committed: it exists only in the tarball, and jsDelivr serves it
-#             from there, cached for a year and immutable.
-#   release → cut the GitHub Release on that tag, its body the rolled notes plus
-#             the jsDelivr URL of every entry at the new version.
+#             CHANGELOG [Unreleased], commits both + tags on main. The ONLY job
+#             that writes a file or a tag; it emits the tag used downstream.
+#   package → check out that tag, build and `npm pack` → GHA artifact
+#   npm     → publish that tarball to npm, with provenance
+#   release → attach the same tarball to the GitHub Release
 #
-# The tag exists before the package does. If `npm` fails, re-run that job: it
-# builds from the existing tag and never re-tags. A pre-release bump publishes
-# under the `next` dist-tag, never `latest` — pre-releases are how unreleased
+# npm uses trusted publishing, which npm binds to THIS file name and the `npm`
+# environment — so the upload is a job here, never inside a called workflow,
+# and renaming this file breaks publishing until npmjs.com is updated.
+#
+# dist/ is never committed: it exists only in the tarball, and jsDelivr serves
+# it from npm, cached for a year and immutable. A pre-release bump publishes
+# under the `next` dist-tag, never `latest`; pre-releases are how unreleased
 # code gets tried in a real Grafana.
 #
-# Run once with push=false (dry run: runs the tests and computes the next
-# version without committing, tagging or releasing anything), then push=true to
-# actually cut the release.
+# Run once with push=false (a dry run: tests, the next version, and the
+# package, nothing pushed), then push=true.
 #
-# Auth for the version job: the kubed.io GitHub App, from the org's GH_CLIENT_ID
-# variable and GH_APP_KEY secret (org secrets reach public repos on the free
-# plan). The App token is what lets version-bump commit to main and create the tag.
+# This is a public repo: credentials are org secrets, with no GCP hop. The
+# kubed.io App token is what lets version-bump commit to main and create the tag.
 
 on:
   workflow_dispatch:
@@ -48,8 +46,8 @@ on:
         default: false
         type: boolean
 
-# Least privilege by default. `version` and `release` opt up in their own
-# blocks; nothing else writes anything.
+# Least privilege by default. `version` and `release` opt up to contents: write
+# and `npm` to id-token: write in their own blocks.
 permissions:
   contents: read
 
@@ -189,53 +187,82 @@ jobs:
           done
         } >> "$GITHUB_STEP_SUMMARY"
 
+  # ---------------------------------------------------------------------------
+  # Build the tarball at the same tag → GHA artifact. Runs on a dry run too:
+  # "does it still package?" is exactly what a dry run is for.
+  # ---------------------------------------------------------------------------
+  package:
+    name: Package
+    needs: version
+    uses: ./.github/workflows/package.yml
+    with:
+      tag: ${{ inputs.push && needs.version.outputs.tag || '' }}
+
   npm:
     name: npm
-    needs: version
+    needs: package
     if: inputs.push
     runs-on: ubuntu-latest
-    # The trusted publisher on npmjs.com names this workflow AND this
-    # environment, so a publish from anywhere else is refused by npm itself.
-    environment: npm
+    environment:
+      name: npm
+      url: https://www.npmjs.com/package/@kubed.io/cdn
     permissions:
       contents: read
       id-token: write   # npm trusted publishing (OIDC) and provenance
     steps:
 
-    - name: Checkout the Tag
-      uses: actions/checkout@v7
+    - name: Download Package
+      uses: actions/download-artifact@v8
       with:
-        ref: ${{ needs.version.outputs.tag }}
-        persist-credentials: false
+        name: ${{ needs.package.outputs.package }}
+        path: pkg
 
-    # No cache: a cache written by a PR run must never feed a release build.
+    # Trusted publishing needs npm 11.5.1 or later, which Node 24 ships.
     - name: Setup Node
       uses: actions/setup-node@v7
       with:
         node-version: 24
         registry-url: https://registry.npmjs.org
 
-    - name: Install
-      run: npm ci --ignore-scripts
-
-    # prepublishOnly runs the typecheck, the tests and the build again, here,
-    # on exactly the tree being published.
-    - name: Publish
+    # Publishing a tarball runs no lifecycle script: what goes up is byte for
+    # byte what package.yml built and verified.
+    - name: Publish to npm
       env:
-        DIST_TAG: ${{ contains(needs.version.outputs.version, '-') && 'next' || 'latest' }}
-      run: npm publish --provenance --access public --tag "$DIST_TAG"
+        TARBALL: pkg/${{ needs.package.outputs.tarball }}
+        DIST_TAG: ${{ contains(needs.package.outputs.version, '-') && 'next' || 'latest' }}
+      run: npm publish "$TARBALL" --provenance --access public --tag "$DIST_TAG"
 
+  # ---------------------------------------------------------------------------
+  # The outward-facing step, and the last one. No source checkout: it attaches
+  # the package artifact, so the Release carries the exact published tarball.
+  # ---------------------------------------------------------------------------
   release:
     name: Release
-    needs: [version, npm]
+    needs:
+    - version
+    - package
+    - npm
     if: inputs.push
     runs-on: ubuntu-latest
     permissions:
       contents: write   # create the GitHub Release on the existing tag
     steps:
 
-    # No checkout: the release is the tag, which already exists. This job only
-    # writes the Release that describes it.
+    # Same identity and the same scoping as the `version` job.
+    - name: Create GitHub App Token
+      id: app-token
+      uses: actions/create-github-app-token@v3
+      with:
+        client-id: ${{ vars.GH_CLIENT_ID }}
+        private-key: ${{ secrets.GH_APP_KEY }}
+        permission-contents: write
+
+    - name: Download Package
+      uses: actions/download-artifact@v8
+      with:
+        name: ${{ needs.package.outputs.package }}
+        path: pkg
+
     - name: Download the Release Notes
       uses: actions/download-artifact@v8
       with:
@@ -249,8 +276,7 @@ jobs:
         SERVER: ${{ github.server_url }}
         REPO: ${{ github.repository }}
         RUN_ID: ${{ github.run_id }}
-        TAG: ${{ needs.version.outputs.tag }}
-        VERSION: ${{ needs.version.outputs.version }}
+        VERSION: ${{ needs.package.outputs.version }}
       run: |
         {
           echo "[![Publish](${SERVER}/${REPO}/actions/workflows/publish.yml/badge.svg)](${SERVER}/${REPO}/actions/runs/${RUN_ID})"
@@ -261,7 +287,7 @@ jobs:
           echo
           echo "## Assets"
           echo
-          echo "Served by jsDelivr from npm, immutable:"
+          echo "On npm as [\`@kubed.io/cdn@${VERSION}\`](https://www.npmjs.com/package/@kubed.io/cdn/v/${VERSION}), served by jsDelivr, immutable:"
           echo
           for asset in $ASSETS; do
             echo "- ${CDN}@${VERSION}/${asset}"
@@ -274,23 +300,25 @@ jobs:
     - name: Create Release
       uses: softprops/action-gh-release@v3.0.3
       with:
+        token: ${{ steps.app-token.outputs.token }}
         name: ${{ needs.version.outputs.tag }}
         tag_name: ${{ needs.version.outputs.tag }}
         prerelease: ${{ contains(needs.version.outputs.tag, '-') }}
         body_path: body.md
+        files: pkg/${{ needs.package.outputs.tarball }}
 
     - name: Summary
       env:
         TAG: ${{ needs.version.outputs.tag }}
-        VERSION: ${{ needs.version.outputs.version }}
+        VERSION: ${{ needs.package.outputs.version }}
+        TARBALL: ${{ needs.package.outputs.tarball }}
       run: |
-        {
-          echo "## Publish"
-          echo
-          echo "- **Tag**: \`${TAG}\`"
-          echo "- **Version**: \`${VERSION}\`"
-          echo "- **assets**: \`${CDN}@${VERSION}/dist\`"
-          for asset in $ASSETS; do
-            echo "- ${CDN}@${VERSION}/${asset}"
-          done
-        } >> "$GITHUB_STEP_SUMMARY"
+        cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+        ## Publish
+
+        - **Tag**: \`${TAG}\`
+        - **Version**: \`${VERSION}\`
+        - **npm**: \`@kubed.io/cdn@${VERSION}\`
+        - **Tarball**: \`${TARBALL}\`
+        - **assets**: \`${CDN}@${VERSION}/dist\`
+        EOF

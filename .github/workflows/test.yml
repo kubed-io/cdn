@@ -1,9 +1,8 @@
 name: 🧪 Test
 
-# The type check, Vitest under happy-dom (the theme layer, guarded element
+# The type check and Vitest under happy-dom: the theme layer, guarded element
 # definitions, and a scan of every stylesheet for anything that escapes the .kd
-# scope or hard-codes a colour), then the build that publish.yml ships, with a
-# size report per file in the job summary.
+# scope or hard-codes a colour. The build and its size report are package.yml's.
 #
 # One Node version, not a matrix. The code runs in Grafana users' browsers,
 # never in Node; Node is only the toolchain, and 24 is the current LTS.
@@ -64,18 +63,3 @@ jobs:
 
     - name: Test
       run: npm test
-
-    - name: Build
-      run: npm run build
-
-    - name: Size
-      run: |
-        {
-          echo "## dist"
-          echo
-          echo "| File | Bytes | Gzip |"
-          echo "|---|---:|---:|"
-          find dist -type f \( -name '*.js' -o -name '*.css' \) | sort | while read -r f; do
-            echo "| \`${f#dist/}\` | $(wc -c < "$f") | $(gzip -c "$f" | wc -c) |"
-          done
-        } >> "$GITHUB_STEP_SUMMARY"

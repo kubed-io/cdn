@@ -1,0 +1,142 @@
+name: 🗿 Package
+
+# Builds the npm tarball and nothing else, then saves it as a GHA artifact. It
+# never bumps versions, tags, or publishes anywhere:
+#
+#   pull_request       the gate — proves the package still builds and loads
+#   push: main         same, so the badge tracks trunk
+#   workflow_dispatch  package an arbitrary ref
+#   workflow_call      publish.yml passes the release tag, so the tarball is
+#                      built from exactly the released commit; its npm and
+#                      release jobs upload this artifact, byte for byte
+#
+# The version is not an input: package.json at the checked-out ref names it,
+# because the version job commits it there before tagging.
+
+on:
+  # No `paths` filter on pull_request: a path-filtered required check never
+  # reports on a PR that misses the filter, and that PR can never merge.
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+  workflow_call:
+    inputs:
+      tag:
+        description: Git tag to check out and build — empty = the caller's ref
+        type: string
+        required: false
+        default: ''
+    outputs:
+      version:
+        description: Version built, as package.json names it
+        value: ${{ jobs.package.outputs.version }}
+      package:
+        description: Name of the uploaded artifact holding the tarball
+        value: ${{ jobs.package.outputs.package }}
+      tarball:
+        description: Tarball file name
+        value: ${{ jobs.package.outputs.tarball }}
+
+permissions:
+  contents: read
+
+jobs:
+
+  package:
+    name: Package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      package: ${{ steps.version.outputs.package }}
+      tarball: ${{ steps.pack.outputs.tarball }}
+    steps:
+
+    - name: Checkout
+      uses: actions/checkout@v7
+      with:
+        ref: ${{ inputs.tag }}
+        persist-credentials: false
+
+    # No cache: this job builds what a release publishes, and a cache written by
+    # a PR run must never feed that.
+    - name: Setup Node
+      uses: actions/setup-node@v7
+      with:
+        node-version: 24
+
+    - name: Install
+      run: npm ci --ignore-scripts
+
+    # Resolve the version BEFORE building, so a wrong one is caught here rather
+    # than discovered as a confusingly-named tarball later.
+    - name: Resolve Version
+      id: version
+      run: |
+        version="$(node -p 'require("./package.json").version')"
+        echo "Building version: $version"
+        {
+          echo "version=$version"
+          echo "package=kubed.io-cdn-${version}"
+        } >> "$GITHUB_OUTPUT"
+
+    - name: Build
+      run: npm run build
+
+    # `npm pack`, not `npm publish`, so the npm job uploads exactly this file.
+    # Packing a built tree runs no lifecycle script that could rebuild it.
+    - name: Pack
+      id: pack
+      run: |
+        mkdir -p pkg
+        tarball="$(npm pack --ignore-scripts --pack-destination pkg --json | node -p 'JSON.parse(require("fs").readFileSync(0, "utf8"))[0].filename')"
+        echo "tarball=$tarball" >> "$GITHUB_OUTPUT"
+        tar -tzf "pkg/$tarball"
+
+    # What jsDelivr will serve: every entry the README promises is in the
+    # tarball, and each module loads and carries the version it was built as.
+    - name: Verify the Tarball
+      env:
+        TARBALL: ${{ steps.pack.outputs.tarball }}
+        VERSION: ${{ steps.version.outputs.version }}
+      run: |
+        mkdir -p /tmp/verify
+        tar -xzf "pkg/$TARBALL" -C /tmp/verify
+        for f in dist/kd.js dist/kd.css; do
+          test -s "/tmp/verify/package/$f" || { echo "::error::$f is missing from the tarball"; exit 1; }
+        done
+        node --input-type=module -e "
+          const m = await import('/tmp/verify/package/dist/kd.js');
+          for (const name of ['applyTheme', 'followTheme', 'define']) {
+            if (typeof m[name] !== 'function') throw new Error(name + ' is not exported');
+          }
+          if (m.VERSION !== process.env.VERSION) throw new Error('built as ' + m.VERSION + ', package.json says ' + process.env.VERSION);
+        "
+
+    - name: Upload Package
+      uses: actions/upload-artifact@v7
+      with:
+        name: ${{ steps.version.outputs.package }}
+        path: pkg/
+        if-no-files-found: error
+
+    - name: Summary
+      env:
+        VERSION: ${{ steps.version.outputs.version }}
+        TARBALL: ${{ steps.pack.outputs.tarball }}
+      run: |
+        {
+          echo "## Package"
+          echo
+          echo "- **Version**: \`${VERSION}\`"
+          echo "- **Tarball**: \`${TARBALL}\`"
+          echo
+          echo "| File | Bytes | Gzip |"
+          echo "|---|---:|---:|"
+          find dist -type f \( -name '*.js' -o -name '*.css' \) | sort | while read -r f; do
+            echo "| \`${f#dist/}\` | $(wc -c < "$f") | $(gzip -c "$f" | wc -c) |"
+          done
+        } >> "$GITHUB_STEP_SUMMARY"
