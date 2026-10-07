@@ -162,12 +162,12 @@ export interface EventColumns {
 export function eventsTable(groups: EventGroup[], opt: EventColumns = {}): TableData {
   const now = opt.now ?? Date.now();
   const columns: TableColumn[] = [
-    { key: 'reason', label: 'Reason' },
+    { key: 'reason', label: 'Reason', nowrap: true },
     ...(opt.namespace ? [{ key: 'namespace', label: 'Namespace' }] : []),
     ...(opt.object ? [{ key: 'object', label: 'Object' }] : []),
     { key: 'message', label: 'Message' },
-    { key: 'count', label: '', align: 'right' as const },
-    { key: 'last', label: 'Last seen' },
+    { key: 'count', label: '', align: 'right' as const, nowrap: true },
+    { key: 'last', label: 'Last seen', nowrap: true },
   ];
   const ago = (t: number) => (Number.isFinite(t) ? `${duration((now - t) / 1000)} ago` : '');
   const rows = groups.map((g): Record<string, Cell> => ({

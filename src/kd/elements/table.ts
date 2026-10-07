@@ -9,6 +9,8 @@ export interface TableColumn {
   /** Defaults to the key. */
   label?: string;
   align?: 'left' | 'center' | 'right';
+  /** Keep the cell on one line (counts, times, short pills). */
+  nowrap?: boolean;
 }
 
 export interface TableData {
@@ -57,6 +59,9 @@ export class KdTable extends KdElement {
       .right {
         text-align: right;
       }
+      .nowrap {
+        white-space: nowrap;
+      }
       .none {
         padding: 8px 0;
         color: var(--kd-text-dim, inherit);
@@ -74,6 +79,7 @@ export class KdTable extends KdElement {
     if (!rows.length) return html`<div class="none">${this.empty ?? 'none'}</div>`;
     const cols = columns ?? [...new Set(rows.flatMap((row) => Object.keys(row ?? {})))].map((key) => ({ key }) as TableColumn);
     const align = (col: TableColumn) => (col.align === 'right' || col.align === 'center' ? col.align : '');
+    const cls = (col: TableColumn) => [align(col), col.nowrap ? 'nowrap' : ''].filter(Boolean).join(' ');
     return html`<table>
       <thead>
         <tr>
@@ -83,7 +89,7 @@ export class KdTable extends KdElement {
       <tbody>
         ${rows.map(
           (row) => html`<tr>
-            ${cols.map((col) => html`<td class=${align(col)}>${renderCell(row?.[col.key])}</td>`)}
+            ${cols.map((col) => html`<td class=${cls(col)}>${renderCell(row?.[col.key])}</td>`)}
           </tr>`,
         )}
       </tbody>

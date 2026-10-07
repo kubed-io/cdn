@@ -1,6 +1,6 @@
 import { LitElement, css, type CSSResultGroup } from 'lit';
 
-import { followTheme } from './theme';
+import { SELF_THEMED, followTheme } from './theme';
 
 /**
  * What every element's shadow stylesheet starts from. Colours, fonts, radii and
@@ -52,8 +52,10 @@ export function themedAncestor(element: Element): Element | null {
 
 // Drops the properties followTheme set on an element, so it inherits again.
 function unthemed(element: HTMLElement): void {
-  for (const name of [...element.style].filter((n) => n.startsWith('--kd-'))) element.style.removeProperty(name);
+  const names = Array.from({ length: element.style.length }, (_, i) => element.style.item(i));
+  for (const name of names.filter((n) => n.startsWith('--kd-'))) element.style.removeProperty(name);
   element.removeAttribute('data-theme');
+  element.removeAttribute(SELF_THEMED);
 }
 
 /**
@@ -88,12 +90,21 @@ export class KdElement extends LitElement {
       void followTheme(this).then((stop) => {
         if (live()) {
           this.#stop = stop;
+          this.setAttribute(SELF_THEMED, '');
           return;
         }
         stop();
         if (ticket === this.#following) unthemed(this);
       });
     });
+  }
+
+  /** Stops theming itself and inherits; applyTheme calls this on a newly themed root. */
+  kdInherit(): void {
+    this.#following++;
+    this.#stop?.();
+    this.#stop = undefined;
+    unthemed(this);
   }
 
   override disconnectedCallback(): void {

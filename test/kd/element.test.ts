@@ -1,7 +1,7 @@
 import { html } from 'lit';
 import { describe, expect, it } from 'vitest';
 
-import { KdElement, define, json, themedAncestor } from '../../src/kd';
+import { KdElement, applyTheme, define, json, themedAncestor } from '../../src/kd';
 
 class Probe extends KdElement {
   static override properties = { data: { attribute: 'data', converter: json } };
@@ -80,6 +80,20 @@ describe('KdElement self-theming', () => {
     await frames();
     expect(el.style.getPropertyValue('--kd-bg')).toBe('');
     expect(el.hasAttribute('data-theme')).toBe(false);
+    root.remove();
+  });
+
+  it('stands down when applyTheme reaches the panel root long after it started theming itself', async () => {
+    const root = document.createElement('div');
+    const el = document.createElement('kd-test-probe') as Probe;
+    root.append(el);
+    document.body.append(root);
+    await frames();
+    expect(el.style.getPropertyValue('--kd-bg')).toBe('#bg');
+    applyTheme(root, theme); // the panel's own import resolved late
+    expect(el.style.getPropertyValue('--kd-bg')).toBe('');
+    expect(el.hasAttribute('data-theme')).toBe(false);
+    expect(root.style.getPropertyValue('--kd-bg')).toBe('#bg');
     root.remove();
   });
 });

@@ -131,10 +131,17 @@ export class KdLink extends KdElement {
       :host {
         display: inline;
       }
+      a,
+      span {
+        display: inline-flex;
+        align-items: baseline;
+        max-width: 100%;
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
       a {
         color: var(--kd-link, inherit);
         text-decoration: none;
-        overflow-wrap: anywhere;
       }
       a:hover {
         text-decoration: underline;
