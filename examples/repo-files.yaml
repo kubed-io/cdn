@@ -28,6 +28,9 @@ spec:
         styles: '.dt-row { height: 100%; padding: 4px 0 0; overflow: auto; }'
 ---
 # Viewer panel: one row {text, size, binary, truncated} for `object(expression: "${file}")`.
+# feed() merges, so the viewer passes every key it manages each time, undefined where one does not
+# apply; otherwise the last file's `type` or `src` sticks to the next. A binary image previews from
+# raw.githubusercontent.com, which serves public repositories only.
 kind: Panel
 spec:
   title: ''
@@ -43,16 +46,19 @@ spec:
             const repo = m.variable(context, 'repo');
             const [oid, ...rest] = m.variable(context, 'file').split(':');
             const path = rest.join(':');
-            const row = context.data[0] || {};
+            const row = (path && context.data[0]) || {};
+            const image = row.binary && m.fileKind(path) === 'image';
             const host = m.variable(context, 'code_server');
             m.feed(context, { 'kd-file': {
-              path, size: row.size, truncated: row.truncated,
-              ...(row.binary ? { type: 'binary' } : { text: row.text ?? '' }),
-              base: m.readmeBase(repo, oid, path.split('/').slice(0, -1).join('/')),
-              links: [
+              path, size: row.size ?? undefined, truncated: row.truncated ?? undefined,
+              text: row.binary ? undefined : row.text ?? undefined,
+              type: row.binary && !image ? 'binary' : undefined,
+              src: image ? m.rawUrl(repo, oid, path) : undefined,
+              base: path ? m.readmeBase(repo, oid, path.split('/').slice(0, -1).join('/')) : undefined,
+              links: path ? [
                 { text: 'GitHub', href: m.blobUrl(repo, oid, path) },
                 ...(host ? [{ text: 'code-server', href: m.codeServerUrl(host, repo, path) }] : []),
-              ],
+              ] : undefined,
             } });
           });
         styles: '.dt-row { height: 100%; padding: 4px 0 0; overflow: auto; }'

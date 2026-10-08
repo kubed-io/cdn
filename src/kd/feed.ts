@@ -18,6 +18,10 @@ export type FeedMap = Record<string, Record<string, unknown>>;
  * every element under the root that matches it. Idempotent, as afterRender
  * runs twice per refresh.
  *
+ * It merges (`Object.assign`): a key left out keeps the value an earlier call
+ * gave it. A panel should pass every key it manages each time, `undefined`
+ * where one does not apply, or the last file's `type` or `src` sticks to the next.
+ *
  * `afterRender: import(assets + '/kd.js').then((m) => m.feed(context, { 'kd-markdown': { markdown } }))`
  *
  * @returns the elements it set properties on

@@ -8,6 +8,7 @@ import '../kd/files';
 export { VERSION } from '../kd/define';
 export { applyTheme } from '../kd/theme';
 export { feed, variable, type FeedContext, type FeedMap } from '../kd/feed';
+export { fileKind } from '../kd/files/file';
 export { pathHash } from './hash';
 export { blobUrl, codeServerUrl, rawUrl, readmeBase, treeUrl, type CodeServerOptions } from './urls';
 export { treeEntries, treeOid, treeRows, type TreeOptions, type TreeRow } from './tree';

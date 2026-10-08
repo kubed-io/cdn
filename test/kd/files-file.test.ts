@@ -65,6 +65,18 @@ describe('kd-file', () => {
     expect(note(custom)).toBe('Pick a file');
   });
 
+  it('is empty for an empty path with empty text, as a panel with no file selected sends', async () => {
+    const el = await file({ path: '', text: '' }, '<kd-file empty="Click a file"></kd-file>');
+    expect(note(el)).toBe('Click a file');
+    expect($(el, '.head')).toBeNull();
+    expect($(el, 'kd-code')).toBeNull();
+    // Back to empty after a file.
+    await update(el, { path: 'a.ts', text: 'x' });
+    expect($(el, 'kd-code')).not.toBeNull();
+    await update(el, { path: '', text: undefined });
+    expect(note(el)).toBe('Click a file');
+  });
+
   it('shows code in kd-code, under a header with the path, size and links', async () => {
     const el = await file({
       path: 'src/kd/index.ts',

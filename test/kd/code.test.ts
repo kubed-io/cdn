@@ -107,6 +107,19 @@ describe('kd-code', () => {
     expect(pre().classList.contains('wrap')).toBe(false);
   });
 
+  it('keeps its toolbar above the code, on a background, so it can be seen and clicked', () => {
+    const css = (customElements.get('kd-code') as unknown as { styles: { cssText: string }[] }).styles
+      .flat()
+      .map((s) => s.cssText)
+      .join('\n');
+    const tools = /\.tools\s*\{([^}]*)\}/.exec(css)?.[1] ?? '';
+    expect(Number(/z-index:\s*(\d+)/.exec(tools)?.[1])).toBeGreaterThan(0);
+    expect(tools).toMatch(/background:\s*color-mix\([^;]*var\(--kd-bg-2/);
+    // The numbered lines it sits over are positioned, with no z-index of their own.
+    expect(css).toMatch(/\.numbered \.line\s*\{[^}]*position:\s*relative/);
+    expect(/\.numbered \.line\s*\{([^}]*)\}/.exec(css)?.[1]).not.toMatch(/z-index/);
+  });
+
   it('copies the text as given', async () => {
     const writeText = vi.fn(async () => {});
     Object.defineProperty(window.navigator, 'clipboard', { value: { writeText }, configurable: true });

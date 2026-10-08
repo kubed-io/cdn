@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 import '../../src/kd/files';
+import { ACTIVITY_COLUMNS } from '../../src/github';
 import type { Entry, FilesEventDetail, KdFiles, Provider } from '../../src/kd/files';
 import { fakeScene, textbox } from './fake-scene';
 import { mount, settle, shadow, update } from './mount';
@@ -37,6 +38,8 @@ const row = (el: KdFiles, name: string) => rows(el).find((r) => r.querySelector(
 const crumbs = (el: KdFiles) => [...shadow(el).querySelectorAll('.crumb')].map((c) => c.textContent?.trim());
 const column = (el: KdFiles, i: number) => rows(el).map((r) => r.cells[i]?.textContent?.replace(/\s+/g, ' ').trim());
 const heads = (el: KdFiles) => [...shadow(el).querySelectorAll('th')] as HTMLElement[];
+const sorter = (el: KdFiles, i: number) => heads(el)[i].querySelector('button') as HTMLButtonElement;
+const trail = (el: KdFiles) => shadow(el).querySelector('.crumbs')?.textContent?.replace(/\s+/g, ' ').trim();
 const key = (el: KdFiles, k: string) =>
   shadow(el).querySelector('.rows')?.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, cancelable: true }));
 
@@ -53,6 +56,14 @@ describe('kd-files', () => {
     expect(column(el, 1)).toEqual(['3 B', '407 B', '10 B', '2.0 KiB']);
     expect(crumbs(el)).toEqual(['cdn']);
     expect(shadow(el).querySelector('.tot')?.textContent).toBe('2 folders · 2 files · 2.4 KiB');
+    row(el, 'src')?.click();
+    await tick(el);
+    expect(trail(el)).toBe('cdn / src');
+  });
+
+  it('counts one folder and one file in the singular', async () => {
+    const el = await files('<kd-files></kd-files>', { entries: [{ path: 'a/b.txt', type: 'file', size: 1 }, { path: 'c.txt', type: 'file', size: 2 }] });
+    expect(shadow(el).querySelector('.tot')?.textContent).toBe('1 folder · 1 file · 3 B');
   });
 
   it('takes its entries as a JSON attribute too', async () => {
@@ -74,6 +85,8 @@ describe('kd-files', () => {
     row(el, 'kd')?.click();
     await tick(el);
     expect(crumbs(el)).toEqual(['/', 'src', 'kd']);
+    // The bare root crumb is the first slash: no "/ / src".
+    expect(trail(el)).toBe('/ src / kd');
     (shadow(el).querySelectorAll('.crumb')[1] as HTMLElement).click();
     await tick(el);
     expect(el.folder).toBe('src');
@@ -139,11 +152,18 @@ describe('kd-files', () => {
     expect(rows(el).some((r) => r.getAttribute('aria-selected') === 'true')).toBe(false);
   });
 
-  it('keeps its folder per key across recreation, ahead of the selection', async () => {
+  it('keeps its folder per key across recreation, for the selection it was left with', async () => {
     const first = await files('<kd-files key="repo"></kd-files>');
+    row(first, 'src')?.click();
+    await tick(first);
+    row(first, 'index.ts')?.click();
+    await tick(first);
+    row(first, '..')?.click();
+    await tick(first);
     row(first, 'docs')?.click();
     await tick(first);
     expect(sessionStorage.getItem('kd-files:repo')).toBe('docs');
+    expect(sessionStorage.getItem('kd-files:repo:selected')).toBe('src/index.ts');
     first.remove();
 
     const again = await files('<kd-files key="repo"></kd-files>', { entries: ENTRIES, selected: 'src/index.ts' });
@@ -155,6 +175,47 @@ describe('kd-files', () => {
 
     const other = await files('<kd-files key="other"></kd-files>', { entries: ENTRIES, selected: 'src/index.ts' });
     expect(other.folder).toBe('src');
+  });
+
+  it('opens a deep link\'s folder over a remembered folder left with another selection', async () => {
+    sessionStorage.setItem('kd-files:repo', 'docs');
+    sessionStorage.setItem('kd-files:repo:selected', 'docs/guide.md');
+    // Set together, as feed() does.
+    const deep = await files('<kd-files key="repo"></kd-files>', { entries: ENTRIES, selected: 'src/kd/a.ts' });
+    expect(deep.folder).toBe('src/kd');
+    expect(row(deep, 'a.ts')?.getAttribute('aria-selected')).toBe('true');
+    deep.remove();
+
+    // Selected before the first render, too.
+    sessionStorage.setItem('kd-files:repo', 'docs');
+    const early = document.createElement('kd-files') as KdFiles;
+    early.setAttribute('key', 'repo');
+    early.entries = ENTRIES;
+    early.selected = 'src/index.ts';
+    document.body.append(early);
+    await tick(early);
+    expect(early.folder).toBe('src');
+
+    // A folder remembered before selections were stored with it gives way too.
+    sessionStorage.clear();
+    sessionStorage.setItem('kd-files:old', 'docs');
+    const old = await files('<kd-files key="old"></kd-files>', { entries: ENTRIES, selected: 'src/index.ts' });
+    expect(old.folder).toBe('src');
+  });
+
+  it('remembers the open folder with each pick', async () => {
+    const el = await files('<kd-files key="repo"></kd-files>', { entries: ENTRIES, selected: 'docs/index.md' });
+    expect(el.folder).toBe('docs');
+    // Another panel moves the selection; the user picks in the folder it opened.
+    await update(el, { selected: 'src/kd/b.ts' });
+    await tick(el);
+    row(el, 'a.ts')?.click();
+    await tick(el);
+    expect(sessionStorage.getItem('kd-files:repo')).toBe('src/kd');
+    expect(sessionStorage.getItem('kd-files:repo:selected')).toBe('src/kd/a.ts');
+    el.remove();
+    const again = await files('<kd-files key="repo"></kd-files>', { entries: ENTRIES, selected: 'src/kd/a.ts' });
+    expect(again.folder).toBe('src/kd');
   });
 
   it('falls back to the root when a remembered folder is gone', async () => {
@@ -200,20 +261,22 @@ describe('kd-files', () => {
       { key: 'owner', kind: 'cell' as const },
     ];
     const el = await files('<kd-files key="s"></kd-files>', { entries: ENTRIES, columns });
-    expect(heads(el).map((h) => h.textContent?.trim())).toEqual(['Name', 'size', 'Opened', 'modified', 'owner']);
-    heads(el)[1].click();
+    expect(heads(el).map((h) => h.textContent?.trim())).toEqual(['Name', 'size', '📂', 'modified', 'owner']);
+    expect(sorter(el, 2).getAttribute('aria-label')).toBe('Opened');
+    expect(sorter(el, 2).title).toBe('Opened');
+    sorter(el, 1).click();
     await settle(el);
     expect(names(el)).toEqual(['src', 'docs', 'README.md', 'b.txt']);
     expect(heads(el)[1].getAttribute('aria-sort')).toBe('descending');
-    heads(el)[1].click();
+    sorter(el, 1).click();
     await settle(el);
     expect(names(el)).toEqual(['docs', 'src', 'b.txt', 'README.md']);
-    heads(el)[2].click();
+    sorter(el, 2).click();
     await settle(el);
     expect(names(el)).toEqual(['src', 'docs', 'b.txt', 'README.md']);
     expect(column(el, 2)).toEqual(['📂 2', '', '📂 5', '📂 1']);
     expect(rows(el)[0].querySelector('.stat')?.className).toBe('stat info');
-    heads(el)[3].click();
+    sorter(el, 3).click();
     await settle(el);
     expect(names(el)).toEqual(['docs', 'src', 'b.txt', 'README.md']);
     expect(column(el, 3)).toEqual(['', '', '2026-10-07', '2026-10-01']);
@@ -221,7 +284,7 @@ describe('kd-files', () => {
 
     row(el, 'docs')?.click();
     await tick(el);
-    heads(el)[4].click();
+    sorter(el, 4).click();
     await settle(el);
     expect(column(el, 4)).toEqual(['', 'zed', 'amy']);
     expect(rows(el)[1].querySelector('kd-pill')).not.toBeNull();
@@ -236,7 +299,7 @@ describe('kd-files', () => {
     input.value = 'B';
     input.dispatchEvent(new Event('input'));
     await tick(el);
-    expect(rows(el).map((r) => r.querySelector('.name')?.textContent?.replace(/\s+/g, ''))).toEqual(['📄b.txt', '📄src/kd/b.ts']);
+    expect(rows(el).map((r) => r.querySelector('.name')?.textContent?.replace(/\s+/g, ''))).toEqual(['b.txt', 'src/kd/b.ts']);
     input.value = 'nothing-like-it';
     input.dispatchEvent(new Event('input'));
     await tick(el);
@@ -335,5 +398,59 @@ describe('kd-files', () => {
     link.click();
     await tick(el);
     expect(el.selected).toBe('src/kd/b.ts');
+  });
+
+  it('sorts from header buttons the keyboard reaches, without moving the rows', async () => {
+    const el = await files();
+    key(el, 'ArrowDown');
+    await settle(el);
+    const name = sorter(el, 0);
+    expect(name.type).toBe('button');
+    expect(name.hasAttribute('tabindex')).toBe(false);
+    expect(heads(el).every((h) => !h.hasAttribute('tabindex'))).toBe(true);
+    // Enter on a button is the button's: the rows' keyboard leaves it alone.
+    const enter = new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true });
+    name.dispatchEvent(enter);
+    expect(enter.defaultPrevented).toBe(false);
+    await tick(el);
+    expect(el.folder).toBe('');
+    name.click();
+    await settle(el);
+    expect(heads(el)[0].getAttribute('aria-sort')).toBe('descending');
+    expect(names(el)).toEqual(['src', 'docs', 'README.md', 'b.txt']);
+  });
+
+  it('keeps a name on one line, whole in its tooltip, with its link at the end', async () => {
+    const long = 'a-very-long-file-name-that-would-wrap-mid-word-in-a-narrow-panel.ts';
+    const el = await files('<kd-files></kd-files>', {
+      entries: [{ path: long, type: 'file', size: 1, href: 'https://example.com/x' }],
+    });
+    const name = rows(el)[0].querySelector('.name') as HTMLElement;
+    expect(rows(el)[0].cells[0].classList.contains('cell-name')).toBe(true);
+    expect(name.querySelector('.label')?.getAttribute('title')).toBe(long);
+    expect(name.lastElementChild?.matches('a.ext')).toBe(true);
+    const css = (el.constructor as typeof KdFiles).styles.flat().map((s) => (s as { cssText: string }).cssText).join('\n');
+    expect(css).toMatch(/\.name\s*\{[^}]*white-space:\s*nowrap/);
+    expect(css).toMatch(/\.label,\s*\.under\s*\{[^}]*text-overflow:\s*ellipsis/);
+    expect(css).toMatch(/td\.cell-name\s*\{[^}]*max-width:\s*0/);
+  });
+
+  it('heads the activity columns with their icons, the label as the name', async () => {
+    const el = await files('<kd-files></kd-files>', { entries: ENTRIES, columns: ACTIVITY_COLUMNS });
+    const buttons = heads(el).map((_, i) => sorter(el, i));
+    expect(buttons.map((b) => b.textContent?.trim())).toEqual(['Name', '📂', '👁', '💾', '+', '−', 'Size']);
+    expect(buttons.map((b) => b.getAttribute('aria-label'))).toEqual([null, 'Opened', 'Viewed', 'Saved', 'Added', 'Removed', null]);
+    expect(buttons[1].title).toBe('Opened: Opened in an editor tab (code-server)');
+    expect(heads(el).slice(1).every((h) => h.classList.contains('num'))).toBe(true);
+    expect([...rows(el)[0].cells].slice(1).every((c) => c.classList.contains('num'))).toBe(true);
+  });
+
+  it('draws its icons in the theme\'s text colour', async () => {
+    const el = await files();
+    const ico = rows(el)[0].querySelector('.ico') as SVGElement;
+    expect(ico.localName).toBe('svg');
+    expect(ico.getAttribute('stroke')).toBe('currentColor');
+    const css = (el.constructor as typeof KdFiles).styles.flat().map((s) => (s as { cssText: string }).cssText).join('\n');
+    expect(css).toMatch(/\.ico\s*\{[^}]*color:\s*var\(--kd-text-2/);
   });
 });

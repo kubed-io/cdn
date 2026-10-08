@@ -114,13 +114,18 @@ export class KdCode extends KdElement {
         background: color-mix(in srgb, var(--kd-warning, transparent) 16%, transparent);
         box-shadow: inset 2px 0 var(--kd-warning, currentColor);
       }
+      /* Above the numbered lines, which are positioned too and come later. */
       .tools {
         position: absolute;
+        z-index: 1;
         top: 5px;
         right: 5px;
         display: flex;
         align-items: center;
         gap: 4px;
+        padding: 2px;
+        border-radius: var(--kd-radius, 4px);
+        background: color-mix(in srgb, var(--kd-bg-2, transparent) 85%, var(--kd-bg, transparent));
         opacity: 0;
         transition: opacity 0.15s;
       }

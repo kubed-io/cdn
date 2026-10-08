@@ -1,4 +1,4 @@
-import { css, html, nothing, type PropertyValues, type TemplateResult } from 'lit';
+import { css, html, nothing, svg, type PropertyValues, type TemplateResult } from 'lit';
 import { ifDefined } from 'lit/directives/if-defined.js';
 
 import { cellStyles, renderCell, type Cell } from '../cell';
@@ -78,6 +78,16 @@ function sortValue(entry: Entry, key: string, kind: Kind | 'name'): number | str
   }
 }
 
+const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+// Line icons in currentColor, so the theme's tokens colour them (an emoji keeps its own pale colours).
+const FOLDER = svg`<path d="M1.5 3.5h4.5l1.5 1.5h7v8.5h-13z" />`;
+const FILE = svg`<path d="M3.5 1.5h6l3 3v10h-9z" /><path d="M9.5 1.5v3h3" />`;
+const icon = (dir: boolean) =>
+  html`<svg class="ico" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round" aria-hidden="true">
+    ${dir ? FOLDER : FILE}
+  </svg>`;
+
 function formatModified(value: string | number | undefined): string {
   const t = modifiedTime(value);
   return Number.isNaN(t) ? '' : new Date(t).toISOString().slice(0, 10);
@@ -92,7 +102,8 @@ function formatModified(value: string | number | undefined): string {
  * dashboard variable, replacing the URL entry as Grafana's own programmatic
  * writes do. `selected` (`valuePrefix + path`, as the variable holds it) is highlighted and
  * its folder opened. With a `key`, the open folder and the sort survive the
- * panel recreating the element.
+ * panel recreating the element; the folder is stored with the selection it was
+ * left with, so a different `selected` (a deep link) opens its own folder instead.
  *
  * `<kd-files variable="file" key="repo-files" filter></kd-files>` + `el.entries = [...]`
  */
@@ -179,25 +190,48 @@ export class KdFiles extends KdElement {
         border-collapse: collapse;
       }
       th {
-        padding: 6px 10px;
+        padding: 4px 6px;
+        text-align: left;
+        white-space: nowrap;
+      }
+      th:first-child,
+      td:first-child {
+        padding-left: 10px;
+      }
+      button.sort {
+        padding: 2px 0;
+        border: none;
+        background: none;
         color: var(--kd-text-2, inherit);
+        font: inherit;
         font-size: 10px;
         font-weight: 500;
         letter-spacing: 0.08em;
-        text-align: left;
         text-transform: uppercase;
         white-space: nowrap;
         cursor: pointer;
         user-select: none;
       }
-      th[aria-sort='ascending']::after {
+      button.sort:hover,
+      button.sort:focus-visible {
+        color: var(--kd-text, inherit);
+      }
+      button.sort:focus-visible {
+        outline: 1px solid var(--kd-primary, currentColor);
+        outline-offset: 1px;
+      }
+      .glyph {
+        font-size: 12px;
+        letter-spacing: 0;
+      }
+      th[aria-sort='ascending'] button.sort::after {
         content: ' ▲';
       }
-      th[aria-sort='descending']::after {
+      th[aria-sort='descending'] button.sort::after {
         content: ' ▼';
       }
       td {
-        padding: 4px 10px;
+        padding: 4px 6px;
         border-top: 1px solid var(--kd-border, transparent);
         vertical-align: middle;
       }
@@ -205,6 +239,11 @@ export class KdFiles extends KdElement {
         width: 1%;
         text-align: right;
         white-space: nowrap;
+      }
+      /* The name takes what the numbers leave, down to the .name min-width, and ellipsises. */
+      td.cell-name {
+        width: 100%;
+        max-width: 0;
       }
       tbody tr {
         cursor: pointer;
@@ -220,15 +259,32 @@ export class KdFiles extends KdElement {
       }
       .name {
         display: flex;
-        align-items: baseline;
+        align-items: center;
         gap: 6px;
-        min-width: 0;
+        min-width: 6em;
+        white-space: nowrap;
       }
       .ico {
         flex: none;
+        width: 14px;
+        height: 14px;
+        color: var(--kd-text-2, inherit);
       }
-      .label {
-        overflow-wrap: anywhere;
+      .dir .ico {
+        color: var(--kd-link, inherit);
+      }
+      .label,
+      .under {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .under {
+        flex: 0 1000 auto;
+      }
+      .partial,
+      a.ext {
+        flex: none;
       }
       .dir .label {
         color: var(--kd-link, inherit);
@@ -276,6 +332,8 @@ export class KdFiles extends KdElement {
   #source: Provider | undefined;
   #folder: string | undefined;
   #fromStorage = false;
+  // The `selected` value stored with the remembered folder; null when none was.
+  #storedSelected: string | null = null;
   #navigated = false;
   #seen: string | undefined;
   #picked: string | undefined;
@@ -348,15 +406,19 @@ export class KdFiles extends KdElement {
     if (this.#folder === undefined) {
       const stored = this.#load('');
       this.#fromStorage = stored !== null;
-      this.#folder = stored !== null ? normalizePath(stored) : sel ? dirname(sel) : '';
+      this.#storedSelected = this.#load(':selected');
+      // A remembered folder is restored for the selection it was left with; a
+      // different selection (a deep link, a pick elsewhere) opens its own folder.
+      this.#folder = stored !== null && (!sel || this.#sameSelection()) ? normalizePath(stored) : sel ? dirname(sel) : '';
       this.#seen = sel || undefined;
       relist = true;
     } else if (sel && sel !== this.#seen) {
-      // The first selection a remembered folder meets does not move it; any
-      // later one, from outside, opens its folder.
+      // The first selection a remembered folder meets moves it only when it is
+      // not the one stored with it; any later one, from outside, opens its folder.
       const first = this.#seen === undefined;
       this.#seen = sel;
-      if (sel !== this.#picked && !(first && this.#fromStorage) && dirname(sel) !== this.#folder) {
+      const keep = first && this.#fromStorage && this.#sameSelection();
+      if (sel !== this.#picked && !keep && dirname(sel) !== this.#folder) {
         this.#folder = dirname(sel);
         this.#navigated = false;
         this.#query = '';
@@ -365,6 +427,15 @@ export class KdFiles extends KdElement {
       }
     }
     if (relist) this.#list();
+  }
+
+  #sameSelection(): boolean {
+    return this.#storedSelected === String(this.selected ?? '');
+  }
+
+  #remember(folder: string): void {
+    this.#save('', folder);
+    this.#save(':selected', String(this.selected ?? ''));
   }
 
   #list(): void {
@@ -457,7 +528,7 @@ export class KdFiles extends KdElement {
     this.#matches = undefined;
     this.#searchTicket++;
     this.#cursor = -1;
-    this.#save('', folder);
+    this.#remember(folder);
     this.dispatchEvent(new CustomEvent<FilesEventDetail>('navigate', { detail: { path: folder, entry }, bubbles: true, composed: true }));
     this.#list();
     this.requestUpdate();
@@ -476,6 +547,8 @@ export class KdFiles extends KdElement {
     this.#picked = path;
     this.#seen = path;
     this.selected = value;
+    // The open folder is remembered with this selection: the pair a re-render restores.
+    this.#remember(this.#folder ?? '');
     if (this.variable) setVariable(this, this.variable, value);
   }
 
@@ -523,6 +596,8 @@ export class KdFiles extends KdElement {
   }
 
   #keydown(event: KeyboardEvent, rows: Row[]): void {
+    // Keys on a sort button or a link inside belong to it.
+    if (event.target !== event.currentTarget) return;
     const move = (to: number) => {
       event.preventDefault();
       this.#cursor = Math.max(0, Math.min(rows.length - 1, to));
@@ -594,7 +669,13 @@ export class KdFiles extends KdElement {
     return html`<nav class="crumbs" aria-label="Folder">
       ${crumb(this.label || '/', '', !parts.length)}
       ${parts.map(
-        (part, i) => html`<span class="sep">/</span>${crumb(part, parts.slice(0, i + 1).join('/'), i === parts.length - 1)}`,
+        // The bare root crumb is itself the first slash.
+        (part, i) =>
+          html`${i || this.label ? html`<span class="sep">/</span>` : nothing}${crumb(
+            part,
+            parts.slice(0, i + 1).join('/'),
+            i === parts.length - 1,
+          )}`,
       )}
     </nav>`;
   }
@@ -631,11 +712,11 @@ export class KdFiles extends KdElement {
         this.#activate(row);
       }}
     >
-      <td>
+      <td class="cell-name">
         <span class="name">
-          <span class="ico" aria-hidden="true">${dir ? '📁' : '📄'}</span>
-          ${row.under ? html`<span class="dim">${row.under}/</span>` : nothing}
-          <span class="label">${entryName(entry)}</span>
+          ${icon(dir)}
+          ${row.under ? html`<span class="under dim" title=${`${row.under}/`}>${row.under}/</span>` : nothing}
+          <span class="label" title=${entryName(entry)}>${entryName(entry)}</span>
           ${entry.partial
             ? html`<span class="partial dim" title="The provider could not list this folder">not listed</span>`
             : nothing}
@@ -661,10 +742,20 @@ export class KdFiles extends KdElement {
     const dirs = items.filter((r) => r.entry.type === 'dir').length;
     const total = this.#listing.reduce((sum, e) => sum + (Number(e.size) || 0), 0);
     const selected = this.selectedPath;
-    const header = (key: string, text: string, num: boolean, title?: string) => {
+    // A column with an icon shows it, its label the tooltip and the accessible name, so six stats fit a narrow panel.
+    const header = (key: string, label: string, num: boolean, glyph?: string, title?: string) => {
       const sort = this.#sort.key === key ? (this.#sort.dir === 1 ? 'ascending' : 'descending') : undefined;
-      return html`<th class=${num ? 'num' : ''} title=${ifDefined(title)} aria-sort=${ifDefined(sort)} @click=${() => this.#sortBy(key)}>
-        ${text}
+      const tip = glyph ? (title ? `${label}: ${title}` : label) : title;
+      return html`<th class=${num ? 'num' : ''} aria-sort=${ifDefined(sort)}>
+        <button
+          type="button"
+          class="sort"
+          title=${ifDefined(tip)}
+          aria-label=${ifDefined(glyph ? label : undefined)}
+          @click=${() => this.#sortBy(key)}
+        >
+          ${glyph ? html`<span class="glyph" aria-hidden="true">${glyph}</span>` : label}
+        </button>
       </th>`;
     };
     let body: TemplateResult;
@@ -678,7 +769,7 @@ export class KdFiles extends KdElement {
           <thead>
             <tr>
               ${header('name', 'Name', false)}
-              ${columns.map((c) => header(c.key, c.label ?? c.key, kindOf(c) !== 'cell', c.title))}
+              ${columns.map((c) => header(c.key, c.label ?? c.key, kindOf(c) !== 'cell', c.icon?.trim() || undefined, c.title))}
             </tr>
           </thead>
           <tbody>
@@ -701,7 +792,9 @@ export class KdFiles extends KdElement {
             />`
           : nothing}
         ${listed && !this.#error
-          ? html`<span class="tot">${dirs} folders · ${items.length - dirs} files · ${formatSize(total)}</span>`
+          ? html`<span class="tot"
+              >${count(dirs, 'folder', 'folders')} · ${count(items.length - dirs, 'file', 'files')} · ${formatSize(total)}</span
+            >`
           : nothing}
       </div>
       ${body}`;

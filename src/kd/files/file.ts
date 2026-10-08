@@ -302,7 +302,8 @@ export class KdFile extends KdElement {
     const blob = this.blob ?? read.blob;
     const type = this.type ?? read.type ?? (blob?.type || undefined);
     const size = this.size ?? read.size ?? blob?.size ?? (text === undefined ? undefined : new TextEncoder().encode(text).length);
-    if (!path && text === undefined && !blob && !this.src) {
+    // No path and nothing to show is no file, even when a panel hands over '' for the text.
+    if (!path && !text && !blob && !this.src) {
       return html`<div class="none">${this.empty ?? 'No file selected.'}</div>`;
     }
     let kind = fileKind(path, type);

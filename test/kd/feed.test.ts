@@ -38,6 +38,16 @@ describe('feed', () => {
     expect(element.querySelectorAll('kd-code')).toHaveLength(1);
   });
 
+  it('merges: a key left out keeps its last value, so a panel passes undefined to clear it', () => {
+    const element = panel('<kd-file></kd-file>');
+    feed({ element }, { 'kd-file': { path: 'logo.png', type: 'binary' } });
+    feed({ element }, { 'kd-file': { path: 'a.yaml', text: 'a: 1' } });
+    const el = element.firstElementChild as HTMLElement & { type?: string; text?: string };
+    expect(el.type).toBe('binary');
+    feed({ element }, { 'kd-file': { path: 'a.yaml', text: 'a: 1', type: undefined } });
+    expect(el.type).toBeUndefined();
+  });
+
   it('sets properties on an element defined after it was created', async () => {
     const element = panel('<kd-later></kd-later>');
     feed({ element }, { 'kd-later': { value: 3 } });
