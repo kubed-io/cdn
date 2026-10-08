@@ -2,6 +2,7 @@
 // counted per path hash (Loki), and Claude Code's Edit/Write tool calls turned
 // into lines added and removed. Each ends as numeric stats on kd-files entries,
 // which the explorer rolls up per folder.
+import { trimSlashes } from './urls';
 import type { Entry } from '../kd/files/types';
 import type { FileColumn } from '../kd/files/explorer';
 import { pathHash } from './hash';
@@ -50,7 +51,7 @@ const rowsOf = (data: unknown): Row[] =>
  * and `/projects/<name>/`, both checkouts counted.
  */
 export function projectPrefixes(repo: string, root = '/projects'): string[] {
-  const base = `/${root.replace(/^\/+|\/+$/g, '')}`;
+  const base = `/${trimSlashes(root)}`;
   const name = repo.split('/').pop() ?? repo;
   return [...new Set([`${base}/${repo}/`, `${base}/${name}/`])];
 }

@@ -51,15 +51,27 @@ export interface CodeServerOptions {
 }
 
 /**
+ * `s` without leading and/or trailing slashes. A loop, not `/\/+$/`: that regex backtracks
+ * quadratically on a long run of slashes that does not end the string.
+ */
+export function trimSlashes(s: string, ends: 'both' | 'end' = 'both'): string {
+  let start = 0;
+  let end = s.length;
+  if (ends === 'both') while (start < end && s[start] === '/') start++;
+  while (end > start && s[end - 1] === '/') end--;
+  return s.slice(start, end);
+}
+
+/**
  * A path of a repository's checkout in code-server: a folder opens as the
  * workspace, a file opens in the repository's workspace. `host` is the
  * code-server host (`code.example.com`, or a full origin); its payload names
  * the same host, which is what VS Code's remote needs.
  */
 export function codeServerUrl(host: string, repo: string, path = '', options: CodeServerOptions = {}): string {
-  const origin = /^https?:\/\//i.test(host) ? host.replace(/\/+$/, '') : `https://${host.replace(/\/+$/, '')}`;
+  const origin = /^https?:\/\//i.test(host) ? trimSlashes(host, 'end') : `https://${trimSlashes(host, 'end')}`;
   const authority = new URL(origin).host;
-  const root = `/${String(options.root ?? '/projects').replace(/^\/+|\/+$/g, '')}`;
+  const root = `/${trimSlashes(String(options.root ?? '/projects'))}`;
   const checkout = `${root}/${repo}`;
   const rel = path.split('/').filter(Boolean).join('/');
   const local = rel ? `${checkout}/${rel}` : checkout;

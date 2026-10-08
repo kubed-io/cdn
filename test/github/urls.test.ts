@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { blobUrl, codeServerUrl, rawUrl, readmeBase, treeUrl } from '../../src/github';
+import { trimSlashes } from '../../src/github/urls';
 
 const OID = '3eb1257aa0c9d0e1f2a3b4c5d6e7f8091a2b3c4d';
 
@@ -46,5 +47,22 @@ describe('codeServerUrl', () => {
     const url = new URL(codeServerUrl('http://localhost:8080', 'o/r', 'a.txt', { root: '/home/coder/src/' }));
     expect(url.searchParams.get('folder')).toBe('/home/coder/src/o/r');
     expect(url.searchParams.get('payload')).toContain('vscode-remote://localhost:8080/home/coder/src/o/r/a.txt');
+  });
+});
+
+describe('trimSlashes', () => {
+  it('trims both ends, or only the end', () => {
+    expect(trimSlashes('//a/b//')).toBe('a/b');
+    expect(trimSlashes('//a/b//', 'end')).toBe('//a/b');
+    expect(trimSlashes('////')).toBe('');
+    expect(trimSlashes('')).toBe('');
+  });
+
+  it('stays linear on a long run of slashes that does not end the string', () => {
+    const evil = '/'.repeat(200_000) + 'x';
+    const t = performance.now();
+    expect(trimSlashes(evil)).toBe('x');
+    expect(trimSlashes(evil, 'end')).toBe(evil);
+    expect(performance.now() - t).toBeLessThan(200);
   });
 });
