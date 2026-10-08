@@ -4,6 +4,11 @@ import { defineConfig } from 'vitest/config';
 
 const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'));
 
+// The @n8n/chat build n8n.js loads from jsDelivr at runtime: package.json's optional peer, so the
+// version lives where npm and a bump PR can see it. Exact, because a range would load a moving file.
+const chat = pkg.peerDependencies?.['@n8n/chat'];
+if (!/^\d+\.\d+\.\d+$/.test(chat ?? '')) throw new Error(`package.json: @n8n/chat must be an exact version, not ${chat}`);
+
 // Light-DOM stylesheets a panel loads through Business Text's externalStyles.
 // They are not imported by any module, so they are emitted as they are.
 const STYLESHEETS: Record<string, string> = {
@@ -24,6 +29,7 @@ function stylesheets(): Plugin {
 export default defineConfig({
   define: {
     __KD_VERSION__: JSON.stringify(pkg.version),
+    __N8N_CHAT_VERSION__: JSON.stringify(chat),
   },
   plugins: [stylesheets()],
   build: {

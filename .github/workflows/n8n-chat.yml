@@ -1,0 +1,108 @@
+name: 💬 n8n chat
+
+# Keeps the @n8n/chat build that n8n.js loads at runtime current. It is
+# package.json's optional peer dependency - declared, never installed, because
+# installing it pulls n8n's whole design system for nothing we bundle - so
+# Dependabot cannot see it, and this does its job for that one package.
+#
+# Weekly, it compares the pin with npm's `latest` dist-tag (never `beta`) and,
+# when they differ, opens a PR moving the pin and adding the CHANGELOG line the
+# PR gate wants. The PR's own CI then runs the tests against the new version;
+# a person still checks the chat in a real dashboard before merging.
+#
+# The PR is opened with the kubed.io App token, not GITHUB_TOKEN: a PR opened
+# by GITHUB_TOKEN triggers no workflows, so it would never get its checks.
+
+on:
+  schedule:
+  - cron: '0 6 * * 1'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+
+  bump:
+    name: Bump
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+
+    - name: Create GitHub App Token
+      id: app-token
+      uses: actions/create-github-app-token@v3
+      with:
+        client-id: ${{ vars.GH_CLIENT_ID }}
+        private-key: ${{ secrets.GH_APP_KEY }}
+        permission-contents: write
+        permission-pull-requests: write
+
+    # The token is not left in .git/config; the push below passes it explicitly.
+    - name: Checkout
+      uses: actions/checkout@v7
+      with:
+        persist-credentials: false
+
+    - name: Setup Node
+      uses: actions/setup-node@v7
+      with:
+        node-version: 24
+
+    - name: Compare
+      id: compare
+      run: |
+        current="$(node -p 'require("./package.json").peerDependencies["@n8n/chat"]')"
+        latest="$(npm view @n8n/chat dist-tags.latest)"
+        echo "Pinned ${current}, npm latest ${latest}" >> "$GITHUB_STEP_SUMMARY"
+        {
+          echo "current=$current"
+          echo "latest=$latest"
+        } >> "$GITHUB_OUTPUT"
+
+    # One PR per version: a branch that already exists means it is open or was
+    # closed on purpose, and either way this leaves it alone.
+    - name: Open the PR
+      if: steps.compare.outputs.current != steps.compare.outputs.latest
+      env:
+        GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+        REPO: ${{ github.repository }}
+        CURRENT: ${{ steps.compare.outputs.current }}
+        LATEST: ${{ steps.compare.outputs.latest }}
+      run: |
+        branch="n8n-chat-${LATEST}"
+        if git ls-remote --exit-code --heads origin "$branch" >/dev/null; then
+          echo "Branch $branch exists; nothing to do." >> "$GITHUB_STEP_SUMMARY"
+          exit 0
+        fi
+        git switch -c "$branch"
+        node - <<'EOF'
+        const fs = require('fs');
+        const { CURRENT, LATEST } = process.env;
+        const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+        pkg.peerDependencies['@n8n/chat'] = LATEST;
+        fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+        const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
+        lock.packages[''].peerDependencies['@n8n/chat'] = LATEST;
+        fs.writeFileSync('package-lock.json', JSON.stringify(lock, null, 2) + '\n');
+        // One line under [Unreleased] ### Changed, creating the heading if needed.
+        const line = `- \`n8n.js\` loads \`@n8n/chat\` ${LATEST} (was ${CURRENT}).`;
+        let log = fs.readFileSync('CHANGELOG.md', 'utf8');
+        const start = log.indexOf('## [Unreleased]');
+        const next = log.indexOf('\n## [', start + 1);
+        const end = next === -1 ? log.length : next;
+        let section = log.slice(start, end);
+        section = section.includes('### Changed')
+          ? section.replace('### Changed\n', `### Changed\n\n${line}\n`).replace(`${line}\n\n- `, `${line}\n- `)
+          : section.trimEnd() + `\n\n### Changed\n\n${line}\n`;
+        fs.writeFileSync('CHANGELOG.md', log.slice(0, start) + section + log.slice(end).replace(/^\n+/, '\n'));
+        EOF
+        git -c user.name="${APP_SLUG}[bot]" -c user.email="${APP_SLUG}[bot]@users.noreply.github.com" \
+          commit -am "n8n.js loads @n8n/chat ${LATEST}"
+        git push "https://x-access-token:${GH_TOKEN}@github.com/${REPO}.git" "$branch"
+        gh pr create --head "$branch" --base main --label dependencies \
+          --title "n8n.js loads @n8n/chat ${LATEST}" \
+          --body "npm's \`latest\` for \`@n8n/chat\` moved from ${CURRENT} to ${LATEST}. Check the chat in a real dashboard before merging: the tile depends on the widget's class names and custom properties."
+        echo "Opened a PR for ${LATEST}." >> "$GITHUB_STEP_SUMMARY"

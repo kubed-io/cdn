@@ -27,7 +27,7 @@ export interface ChatConfig {
   user?: string;
   /** The Authorization header value. Kept in Grafana and passed in, never in this package. */
   auth?: string;
-  /** The `@n8n/chat` version loaded from jsDelivr. */
+  /** The `@n8n/chat` version loaded from jsDelivr; by default the one package.json pins. */
   chatVersion?: string;
   /** The tile: an element, a selector, or by default `#n8n-chat-tile`. An `<a>` or a `<kd-tile>`. */
   tile?: Element | string | null;
@@ -35,7 +35,8 @@ export interface ChatConfig {
   window?: Window;
 }
 
-export const CHAT_VERSION = '1.39.2';
+/** The `@n8n/chat` build loaded by default: package.json's peer dependency, injected at build time. */
+export const CHAT_VERSION: string = __N8N_CHAT_VERSION__;
 
 export interface Settings {
   icon: string;
