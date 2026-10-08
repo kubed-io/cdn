@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import { CHAT_VERSION, settings } from '../../src/n8n';
+import pkg from '../../package.json';
+
+const CHAT = pkg.peerDependencies['@n8n/chat'];
 
 describe('settings', () => {
   it('parses the chat_* values', () => {
@@ -30,7 +33,15 @@ describe('settings', () => {
 
   it('defaults everything', () => {
     const s = settings({});
-    expect(s).toMatchObject({ webhook: '', greeting: [], context: [], settable: [], stream: false, auth: '', chatVersion: '1.39.2' });
+    expect(s).toMatchObject({ webhook: '', greeting: [], context: [], settable: [], stream: false, auth: '', chatVersion: CHAT });
     expect(settings({ stream: true, chatVersion: '1.41.3' })).toMatchObject({ stream: true, chatVersion: '1.41.3' });
+  });
+});
+
+describe('the @n8n/chat pin', () => {
+  it('is package.json\'s optional peer, at an exact version', () => {
+    expect(CHAT).toMatch(/^\d+\.\d+\.\d+$/);
+    expect(CHAT_VERSION).toBe(CHAT);
+    expect(pkg.peerDependenciesMeta['@n8n/chat'].optional).toBe(true);
   });
 });

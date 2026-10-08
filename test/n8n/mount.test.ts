@@ -2,6 +2,9 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { CONTROL_NODE, mount, type ChatWindow } from '../../src/n8n';
 import { dropdown, fakeScene } from '../kd/fake-scene';
+import pkg from '../../package.json';
+
+const CHAT = pkg.peerDependencies['@n8n/chat'];
 
 const WEBHOOK = 'https://n8n.example/webhook/abc/chat';
 
@@ -64,7 +67,7 @@ describe('mount', () => {
     await Promise.all([mount(config, loader), mount(config, loader)]);
     await mount(config, loader);
     expect(loader).toHaveBeenCalledTimes(1);
-    expect(loader).toHaveBeenCalledWith('https://cdn.jsdelivr.net/npm/@n8n/chat@1.39.2/dist/chat.bundle.es.js');
+    expect(loader).toHaveBeenCalledWith(`https://cdn.jsdelivr.net/npm/@n8n/chat@${CHAT}/dist/chat.bundle.es.js`);
     expect(createChat).toHaveBeenCalledTimes(1);
     expect(createChat.mock.calls[0][0]).toMatchObject({
       webhookUrl: WEBHOOK,
@@ -77,7 +80,7 @@ describe('mount', () => {
     expect(win.document.querySelectorAll('#n8n-chat')).toHaveLength(1);
     expect(win.document.querySelectorAll('style[data-n8n-chat-tile]')).toHaveLength(1);
     expect(win.document.querySelector('link[data-n8n-chat-style]')?.getAttribute('href')).toBe(
-      'https://cdn.jsdelivr.net/npm/@n8n/chat@1.39.2/dist/style.css',
+      `https://cdn.jsdelivr.net/npm/@n8n/chat@${CHAT}/dist/style.css`,
     );
     expect(JSON.stringify(win.n8nChatMount)).not.toContain('dGVzdA');
   });

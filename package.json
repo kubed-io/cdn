@@ -50,5 +50,13 @@
   },
   "dependencies": {
     "lit": "3.3.3"
+  },
+  "peerDependencies": {
+    "@n8n/chat": "1.41.3"
+  },
+  "peerDependenciesMeta": {
+    "@n8n/chat": {
+      "optional": true
+    }
   }
 }
