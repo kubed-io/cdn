@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.6] - 2026-10-08
+
 ### Added
 
 - `kd.js`: `<kd-markdown>` renders GitHub-flavoured markdown with marked, sanitised by DOMPurify, code fences highlighted.
