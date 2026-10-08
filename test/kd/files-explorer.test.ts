@@ -66,6 +66,13 @@ describe('kd-files', () => {
     expect(shadow(el).querySelector('.tot')?.textContent).toBe('1 folder · 1 file · 3 B');
   });
 
+  it('leaves a zero count out of the totals', async () => {
+    const el = await files('<kd-files></kd-files>', { entries: [{ path: 'a.txt', type: 'file', size: 1 }, { path: 'b.txt', type: 'file', size: 2 }] });
+    expect(shadow(el).querySelector('.tot')?.textContent).toBe('2 files · 3 B');
+    const only = await files('<kd-files></kd-files>', { entries: [{ path: 'a/b/c.txt', type: 'file', size: 1 }] });
+    expect(shadow(only).querySelector('.tot')?.textContent).toBe('1 folder · 1 B');
+  });
+
   it('takes its entries as a JSON attribute too', async () => {
     const json = JSON.stringify([{ path: 'x/y.txt', type: 'file', size: 3 }]).replace(/"/g, '&quot;');
     const el = await files(`<kd-files entries="${json}"></kd-files>`, {});

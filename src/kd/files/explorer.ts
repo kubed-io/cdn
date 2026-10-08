@@ -793,7 +793,13 @@ export class KdFiles extends KdElement {
           : nothing}
         ${listed && !this.#error
           ? html`<span class="tot"
-              >${count(dirs, 'folder', 'folders')} · ${count(items.length - dirs, 'file', 'files')} · ${formatSize(total)}</span
+              >${[
+                dirs ? count(dirs, 'folder', 'folders') : '',
+                items.length - dirs || !dirs ? count(items.length - dirs, 'file', 'files') : '',
+                formatSize(total),
+              ]
+                .filter(Boolean)
+                .join(' · ')}</span
             >`
           : nothing}
       </div>
