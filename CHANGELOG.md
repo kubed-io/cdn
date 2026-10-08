@@ -14,6 +14,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `kd.js`: `<kd-markdown>` renders GitHub-flavoured markdown with marked, sanitised by DOMPurify, code fences highlighted.
+- `kd.js`: `<kd-code>` highlights source with highlight.js, line numbers and copy, loading only the languages it shows.
+- `kd.js`: `<kd-files>`, a file explorer over a provider, and `<kd-file>`, one file with the right renderer.
+- `kd.js`: `feed(context, map)` themes a panel and hands its elements their data in one call.
+- `github.js`: git tree entries, GitHub URLs, code-server activity and Claude edits per file, and code-server's path hash.
+
 ## [0.0.5] - 2026-10-08
 
 ### Changed

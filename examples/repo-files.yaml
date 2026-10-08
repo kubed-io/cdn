@@ -1,0 +1,58 @@
+# The Repo dashboard's Files tab on @kubed.io/cdn: <kd-files> explores the tree and writes the `file`
+# variable (`<commit oid>:<path>`) on select; <kd-file> shows the picked file with the right renderer.
+# The dashboard keeps its queries; the activity chips come from the same Loki frames as today.
+# Needs the hidden constants `assets` and `code_server` (the code-server host, e.g. code.example.com).
+#
+# Explorer panel: frames are the tree (refId A) and the code-server / Claude Loki events (B, C).
+kind: Panel
+spec:
+  title: ''
+  transparent: true
+  vizConfig:
+    kind: marcusolsson-dynamictext-panel
+    spec:
+      options:
+        renderMode: data
+        content: <kd-files variable="file" key="repo-files" filter></kd-files>
+        afterRender: |-
+          import(context.grafana.replaceVariables('${assets}') + '/github.js').then((m) => {
+            const repo = m.variable(context, 'repo');
+            const entries = m.treeEntries(context.data, { repo, codeServer: m.variable(context, 'code_server') });
+            m.feed(context, { 'kd-files': {
+              entries: m.withActivity(entries, context.data, repo),
+              columns: m.ACTIVITY_COLUMNS,
+              valuePrefix: m.treeOid(context.data) + ':',
+              selected: m.variable(context, 'file'),
+            } });
+          });
+        styles: '.dt-row { height: 100%; padding: 4px 0 0; overflow: auto; }'
+---
+# Viewer panel: one row {text, size, binary, truncated} for `object(expression: "${file}")`.
+kind: Panel
+spec:
+  title: ''
+  transparent: true
+  vizConfig:
+    kind: marcusolsson-dynamictext-panel
+    spec:
+      options:
+        renderMode: allRows
+        content: <kd-file empty="Click a file in the explorer to preview it here."></kd-file>
+        afterRender: |-
+          import(context.grafana.replaceVariables('${assets}') + '/github.js').then((m) => {
+            const repo = m.variable(context, 'repo');
+            const [oid, ...rest] = m.variable(context, 'file').split(':');
+            const path = rest.join(':');
+            const row = context.data[0] || {};
+            const host = m.variable(context, 'code_server');
+            m.feed(context, { 'kd-file': {
+              path, size: row.size, truncated: row.truncated,
+              ...(row.binary ? { type: 'binary' } : { text: row.text ?? '' }),
+              base: m.readmeBase(repo, oid, path.split('/').slice(0, -1).join('/')),
+              links: [
+                { text: 'GitHub', href: m.blobUrl(repo, oid, path) },
+                ...(host ? [{ text: 'code-server', href: m.codeServerUrl(host, repo, path) }] : []),
+              ],
+            } });
+          });
+        styles: '.dt-row { height: 100%; padding: 4px 0 0; overflow: auto; }'

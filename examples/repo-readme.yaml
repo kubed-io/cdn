@@ -1,0 +1,23 @@
+# The Repo dashboard's README tab on @kubed.io/cdn: the query hands over the README's text and
+# <kd-markdown> renders it (GitHub-flavoured, sanitised, code fences highlighted). The jq ends in
+# `[{text: .}]` instead of base64, and the panel needs no Handlebars helper.
+# Needs the hidden `assets` constant (https://cdn.jsdelivr.net/npm/@kubed.io/cdn@X.Y.Z/dist).
+kind: Panel
+spec:
+  title: ''
+  transparent: true
+  vizConfig:
+    kind: marcusolsson-dynamictext-panel
+    spec:
+      options:
+        renderMode: allRows
+        content: <kd-markdown></kd-markdown>
+        defaultContent: <div class="kd">This repository has no README.</div>
+        afterRender: |-
+          import(context.grafana.replaceVariables('${assets}') + '/github.js').then((m) => {
+            const repo = m.variable(context, 'repo');
+            // a pull request's README links point at its branch, not the default one
+            const ref = m.variable(context, 'ref') || m.variable(context, 'prbranch') || 'HEAD';
+            m.feed(context, { 'kd-markdown': { markdown: context.data[0]?.text ?? '', base: m.readmeBase(repo, ref) } });
+          });
+        styles: '.dt-row { height: 100%; padding: 4px 12px 24px; overflow: auto; }'
