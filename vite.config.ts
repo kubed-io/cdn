@@ -44,6 +44,7 @@ export default defineConfig({
         openapi: 'src/openapi/index.ts',
         k8s: 'src/k8s/index.ts',
         n8n: 'src/n8n/index.ts',
+        github: 'src/github/index.ts',
       },
       formats: ['es'],
       fileName: (_format, name) => `${name}.js`,

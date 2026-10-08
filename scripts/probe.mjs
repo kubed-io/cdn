@@ -7,7 +7,7 @@ import { build } from 'vite';
 const pkg = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 rmSync('dist-probe', { recursive: true, force: true });
 
-for (const entry of ['kd', 'openapi', 'k8s', 'n8n']) {
+for (const entry of ['kd', 'openapi', 'k8s', 'n8n', 'github']) {
   await build({
     configFile: false,
     logLevel: 'warn',
