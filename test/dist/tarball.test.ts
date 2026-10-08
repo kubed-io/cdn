@@ -10,7 +10,7 @@ const VERSION = process.env.KD_VERSION;
 const load = (file: string) => import(/* @vite-ignore */ resolve(DIST ?? '', file));
 
 describe.skipIf(!DIST)('the packed dist', () => {
-  it.each(['kd', 'openapi', 'k8s', 'n8n'])('%s.js loads and carries the version', async (entry) => {
+  it.each(['kd', 'openapi', 'k8s', 'n8n', 'github'])('%s.js loads and carries the version', async (entry) => {
     const m = await load(`${entry}.js`);
     expect(m.VERSION).toBe(VERSION);
   });

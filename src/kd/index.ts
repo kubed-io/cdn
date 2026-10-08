@@ -7,9 +7,11 @@ export { kdjson, registerHelpers } from './helpers';
 
 // The generic elements. Each module registers its tag when imported.
 import './elements/bar';
+import './elements/code';
 import './elements/data';
 import './elements/groups';
 import './elements/link';
+import './elements/markdown';
 import './elements/mask';
 import './elements/meter';
 import './elements/pill';
@@ -33,9 +35,11 @@ export {
 export { renderIcon, safeHref, tone, tones, type Tone } from './parts';
 export { toYaml, yamlLines, quote, type YamlKind, type YamlLine, type YamlToken } from './yaml';
 export { KdBar, type BarData } from './elements/bar';
+export { KdCode, highlighter, lineSet } from './elements/code';
 export { KdData } from './elements/data';
 export { KdGroups, jsonValue, type GroupsData } from './elements/groups';
 export { KdLink, linkUrl, type LinkData, type Vars } from './elements/link';
+export { KdMarkdown, rebase, slug, type MarkdownBase } from './elements/markdown';
 export { KdMask } from './elements/mask';
 export { KdMeter, type MeterData, type MeterMark } from './elements/meter';
 export { KdPill } from './elements/pill';
@@ -45,3 +49,8 @@ export { KdTable, type TableColumn, type TableData } from './elements/table';
 export { KdTabs } from './elements/tabs';
 export { KdTile } from './elements/tile';
 export * from './scene';
+// The scene's variable() is a SceneVariable; this one is the panel's view of its value.
+export { feed, variable as contextVariable, type FeedContext, type FeedMap } from './feed';
+export type { Highlighted } from './highlight';
+import './files';
+export * from './files';

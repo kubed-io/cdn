@@ -1,0 +1,64 @@
+# The Repo dashboard's Files tab on @kubed.io/cdn: <kd-files> explores the tree and writes the `file`
+# variable (`<commit oid>:<path>`) on select; <kd-file> shows the picked file with the right renderer.
+# The dashboard keeps its queries; the activity chips come from the same Loki frames as today.
+# Needs the hidden constants `assets` and `code_server` (the code-server host, e.g. code.example.com).
+#
+# Explorer panel: frames are the tree (refId A) and the code-server / Claude Loki events (B, C).
+kind: Panel
+spec:
+  title: ''
+  transparent: true
+  vizConfig:
+    kind: marcusolsson-dynamictext-panel
+    spec:
+      options:
+        renderMode: data
+        content: <kd-files variable="file" key="repo-files" filter></kd-files>
+        afterRender: |-
+          import(context.grafana.replaceVariables('${assets}') + '/github.js').then((m) => {
+            const repo = m.variable(context, 'repo');
+            const entries = m.treeEntries(context.data, { repo, codeServer: m.variable(context, 'code_server') });
+            m.feed(context, { 'kd-files': {
+              entries: m.withActivity(entries, context.data, repo),
+              columns: m.ACTIVITY_COLUMNS,
+              valuePrefix: m.treeOid(context.data) + ':',
+              selected: m.variable(context, 'file'),
+            } });
+          });
+        styles: '.dt-row { height: 100%; padding: 4px 0 0; overflow: auto; }'
+---
+# Viewer panel: one row {text, size, binary, truncated} for `object(expression: "${file}")`.
+# feed() merges, so the viewer passes every key it manages each time, undefined where one does not
+# apply; otherwise the last file's `type` or `src` sticks to the next. A binary image previews from
+# raw.githubusercontent.com, which serves public repositories only.
+kind: Panel
+spec:
+  title: ''
+  transparent: true
+  vizConfig:
+    kind: marcusolsson-dynamictext-panel
+    spec:
+      options:
+        renderMode: allRows
+        content: <kd-file empty="Click a file in the explorer to preview it here."></kd-file>
+        afterRender: |-
+          import(context.grafana.replaceVariables('${assets}') + '/github.js').then((m) => {
+            const repo = m.variable(context, 'repo');
+            const [oid, ...rest] = m.variable(context, 'file').split(':');
+            const path = rest.join(':');
+            const row = (path && context.data[0]) || {};
+            const image = row.binary && m.fileKind(path) === 'image';
+            const host = m.variable(context, 'code_server');
+            m.feed(context, { 'kd-file': {
+              path, size: row.size ?? undefined, truncated: row.truncated ?? undefined,
+              text: row.binary ? undefined : row.text ?? undefined,
+              type: row.binary && !image ? 'binary' : undefined,
+              src: image ? m.rawUrl(repo, oid, path) : undefined,
+              base: path ? m.readmeBase(repo, oid, path.split('/').slice(0, -1).join('/')) : undefined,
+              links: path ? [
+                { text: 'GitHub', href: m.blobUrl(repo, oid, path) },
+                ...(host ? [{ text: 'code-server', href: m.codeServerUrl(host, repo, path) }] : []),
+              ] : undefined,
+            } });
+          });
+        styles: '.dt-row { height: 100%; padding: 4px 0 0; overflow: auto; }'

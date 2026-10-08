@@ -342,10 +342,127 @@ Each step is shippable on its own and is checked live before the next.
 7. **The README documents** the URL form, the `assets` variable, each entry, the element rules, the theme
    contract and the release.
 
+## Round 3: documents and files
+
+Asked for by Dr K on 2026-10-08, after porting the Repo dashboard (uid `repo`) to grafana.krm.kubed.io sources
+in `kubed-io/github/dashboard`. That dashboard carries 63 KB of web code (39 KB minified), about 45 KB of it
+generic: a markdown renderer, a source viewer and a file explorer. The goal is that, wherever a dashboard is,
+it has a real markdown renderer, a syntax-highlighting code viewer and a file explorer from the cdn, and its own
+JavaScript does little more than hand over data and name the variables to drive.
+
+### Decisions
+
+| # | Decision | By |
+|---|---|---|
+| C19 | **`kd-markdown`** is a real renderer: marked (GitHub-flavoured: tables, task lists, autolinks) sanitised by DOMPurify. Code fences render through `kd-code`. Relative links and images resolve against bases the panel gives. | Dr K |
+| C20 | **`kd-code`** is a syntax-highlighting viewer on highlight.js, themed from the `--kd-*` tokens (never an hljs stylesheet), with line numbers, wrapping, highlighted lines, and the language taken from a name or a filename. | Dr K |
+| C21 | **`kd-files`** is a generic file explorer over a **provider**: `list(path)` and, optionally, `read(path)`. A static provider (a flat list of entries, such as a git tree) ships now; a WebDAV provider is designed for and comes later. | Dr K |
+| C22 | **`kd-file`** shows one file, choosing the renderer by type: markdown to `kd-markdown`, text and code to `kd-code`, images inline, anything else as a summary. | recommended |
+| C23 | **Dashboards only wire.** Elements read and write Grafana variables themselves, named by attribute (`<kd-files variable="file">`), through the scene helpers, and `feed(context, …)` themes the panel and hands each element its data in one call. A panel's own JavaScript is a few lines. | Dr K |
+| C24 | **marked, DOMPurify and highlight.js are bundled** npm dependencies, unlike `@n8n/chat`: their licences are permissive (MIT, MPL-2.0 or Apache-2.0, BSD-3-Clause), they are small, and Dependabot tracks them. Each is its own **lazy chunk**, and every highlight.js language its own chunk, so a page downloads only what it shows. | recommended |
+| C25 | **GitHub glue goes in a new `github` entry**: a git tree to `kd-files` entries, blob and raw URLs at a commit, the masthead's data. Hosts such as code-server's are parameters; none is ever written into the package. | recommended |
+
+### Facts
+
+- marked 18.1.0 (MIT), DOMPurify 3.4.16 (MPL-2.0 OR Apache-2.0), highlight.js 11.12.0 (BSD-3-Clause), read
+  2026-10-08. Sizes from the Repo dashboard's survey: marked 39 KB (12.7 KB gzip), DOMPurify 22 KB (8.9 KB gzip),
+  highlight.js core 20 KB (8.5 KB gzip); the dashboard loads all of highlight.js today, 1.09 MB (307 KB gzip).
+- In the Repo dashboard:
+  - **Files tab:** the explorer's value is `<commit oid>:<path>`, which is also the git expression the viewer queries.
+  - **Activity chips:** these join files to code-server events by a path hash computed both in jq and in JS. If the two
+    ever differ, the chips silently show zero.
+  - **Folder state:** today it lives in a window global; there is no sessionStorage, and back and forward don't step
+    through it.
+  - **Variable writes:** every write replaces the URL entry (`locationService.partial(…, true)`).
+  - **README links:** the README is rendered against `${ref}`, falling back to `main`, even when it came from a pull
+    request's head commit, so in pull-request mode its links point at `main` (a bug to fix in passing).
+
+### The elements
+
+**`kd-markdown`**
+- Properties: `markdown` (text); `base` (`{links, images}`: URL prefixes for relative links and images).
+- Attribute: `src`, to fetch the text itself.
+- Behaviour: headings get anchors, external links open in a new tab, and everything passes through DOMPurify before it
+  reaches the shadow root.
+- Typography comes from the theme tokens, matching `kd.css`.
+
+**`kd-code`**
+- Properties: `text`; `language` or `filename`; `lines` (a boolean, default on); `wrap`; `highlight` (line ranges);
+  `start` (the first line's number).
+- Behaviour: only the needed language chunk loads. Unknown languages render as plain text. A very long file renders
+  without highlighting rather than freezing the page, at a threshold the implementer measures.
+- The token colours map onto `--kd-*`.
+
+**`kd-files`**
+- Properties: `provider`, or `entries` (a shortcut for the static provider): `{path, type: 'file'|'dir', size?, modified?,
+  href?, stats?: Record<string, number>, cells?: Record<string, Cell>}`; `columns` (which stats and cells show); `selected`.
+- Attributes: `variable` (written on select); `key` (folder state kept in sessionStorage, as `kd-tabs` does).
+- Features:
+  - breadcrumbs and `..`;
+  - folders first, sortable columns;
+  - a filter box;
+  - folder roll-ups of size and of every numeric stat;
+  - keyboard navigation;
+  - a depth marker for entries a provider could not list.
+- Events: `navigate` and `select` (`{path, entry}`).
+- **The provider contract** is what makes WebDAV possible later:
+  - `list(path)` resolves to that folder's entries;
+  - `read(path)` resolves to `{text}` or `{blob, type}`;
+  - `capabilities` says what it can do: read, write, rename.
+  - The static provider answers from memory.
+
+**`kd-file`**
+- Properties: `path`; `text` or `blob`; `type` (optional, otherwise taken from the extension); `size`; `links` (`[{text,
+  href, icon}]`, for example GitHub and code-server).
+- It renders a header (path breadcrumb, size, links), then the right renderer.
+- It works on its own, or fed by `kd-files` through a provider's `read`.
+
+**`feed(context, map)`**
+- What it is: an afterRender one-liner in `kd`. It applies the theme to the panel root, then for each `selector: data`
+  in `map` sets that element's properties. It is idempotent, because afterRender runs twice per refresh.
+- The Repo dashboard's Files tab then reads, high level:
+
+  ```
+  afterRender: import(assets + '/github.js').then(m => m.feed(context, {
+                 'kd-files': { entries: m.treeEntries(context.data), selected: m.variable(context, 'file') },
+               }))
+  content:     <kd-files variable="file" key="repo-files"></kd-files>
+  ```
+
+### The `github` entry
+
+- **Entries:** `treeEntries(rows)` and the entries for activity stats.
+- **URLs:** `blobUrl(repo, oid, path)` and `rawUrl(…)`.
+- **README links:** `readmeBase(repo, oid)`, which fixes the pull-request link bug.
+- **The masthead's data mapping:** this lands with the masthead, which is a later step.
+- **Hosts:** the code-server URL builder takes the host as an argument; the dashboard passes it from a hidden constant.
+
+### Rollout of round 3
+
+1. **`kd-code` and `kd-markdown`:** the Repo dashboard's README tab moves to `kd-markdown` and its file view to `kd-file`
+   with `kd-code`.
+2. **`kd-files` and the `github` entry:** the Files tab moves, keeping the `file` variable's `<oid>:<path>` contract and
+   the activity chips.
+3. **`feed` and `variable=` across the k8s views:** where they help.
+
+### Acceptance for round 3
+
+1. A probe dashboard shows:
+   - a README with tables, task lists, code fences and relative images rendered and sanitised (a `<script>` in the
+     markdown never runs);
+   - files in five languages highlighted, in both themes, loading only those five language chunks.
+2. `kd-files` over a fake asynchronous provider:
+   - navigates and selects;
+   - rolls up stats;
+   - keeps its folder across a re-render and the theme switch;
+   - writes the named variable.
+3. The Repo dashboard's README and Files tabs on the new elements behave as today. Their own JavaScript is under 1 KB
+   per panel.
+
 ## Out of scope
 
 - The schema-plus-data viewer and the editor (designed for; the next round).
 - Moving the k8s and app dashboards themselves into krm-py sources.
-- The repo dashboard's helpers, `marked`/DOMPurify and highlight.js (a later `kd` addition).
+- WebDAV itself (round 3 designs the provider contract for it).
 - A custom domain, GitHub Pages, or a Content-Security-Policy.
 - Images and icons themselves; icons stay on `cncf/artwork` and `simple-icons`, pinned.

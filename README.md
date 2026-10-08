@@ -16,6 +16,7 @@
 | `dist/openapi.js` | 📜 `<kd-schema>`: any OpenAPI v3 or JSON Schema, kubectl-explain style, rendered lazily |
 | `dist/k8s.js` | ☸️ Kubernetes objects mapped onto the core elements: `<kd-k8s-object>`, `<kd-k8s-ref>`, `<kd-k8s-events>` |
 | `dist/n8n.js` | 💬 `mount(config)`: the n8n agent chat tile for app dashboards |
+| `dist/github.js` | 🐙 GitHub glue: a git tree for `<kd-files>`, blob/raw/README URLs, code-server activity and Claude edits per file |
 
 The entries share chunks, so a page that loads several pays for Lit and the core once. The look lives in the core; a domain entry adds behaviour, never colours.
 
@@ -27,6 +28,8 @@ The entries share chunks, so a page that loads several pays for Lit and the core
 | `kd-bar` `kd-sheet` `kd-table` | a title bar with chips and a breadcrumb, a property sheet, a table; cells can be text, pills, links, code or data |
 | `kd-groups` `kd-data` | labels as grouped pills, annotations as a tree; any JSON value as folded YAML |
 | `kd-tabs` `kd-steps` `kd-meter` | tabs that remember their choice, a stepper, a value against request/limit marks |
+| `kd-markdown` `kd-code` | GitHub-flavoured markdown, sanitised; syntax highlighting with line numbers, in 190+ languages loaded one at a time |
+| `kd-files` `kd-file` | a file explorer over any provider (a static list today, WebDAV later) that can drive a dashboard variable; one file shown with the right renderer |
 
 The source is TypeScript under `src/`, one folder per entry. `dist/` is built by CI and exists only in the published package.
 
@@ -91,6 +94,14 @@ afterRender:    import(base + "/kd.js").then(m => {
 ```
 
 Markup from a query can carry the data as a JSON attribute instead, escaped: `data="{{kdjson rows}}"` with the `kdjson` helper (`registerHelpers(context.handlebars)`), or `@json | @html` in Infinity jq. Never `{{{ }}}` JSON into an attribute.
+
+Or let `feed` do it - it themes the panel and hands each element its data in one call, and elements write
+dashboard variables themselves:
+
+```
+content:     <kd-files variable="file"></kd-files>
+afterRender: import(base + "/kd.js").then(m => m.feed(context, { "kd-files": { entries: context.data } }))
+```
 
 Ready-made panels are in [`examples/`](examples).
 
