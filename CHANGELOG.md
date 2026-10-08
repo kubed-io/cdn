@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.5] - 2026-10-08
+
 ### Changed
 
 - `n8n.js` loads `@n8n/chat` 1.41.3 (was 1.39.2), npm's current `latest`.
