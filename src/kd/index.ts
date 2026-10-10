@@ -6,6 +6,7 @@ export { KdElement, base, json, themedAncestor } from './element';
 export { kdjson, registerHelpers } from './helpers';
 
 // The generic elements. Each module registers its tag when imported.
+import './elements/accordion';
 import './elements/bar';
 import './elements/card';
 import './elements/code';
@@ -18,6 +19,7 @@ import './elements/meter';
 import './elements/pill';
 import './elements/reveal';
 import './elements/sheet';
+import './elements/split';
 import './elements/status';
 import './elements/steps';
 import './elements/table';
@@ -38,6 +40,7 @@ export {
 export { renderIcon, safeHref, tone, tones, type Tone } from './parts';
 export { toYaml, yamlLines, quote, type YamlKind, type YamlLine, type YamlToken } from './yaml';
 export { age, duration } from './time';
+export { KdAccordion } from './elements/accordion';
 export { KdBar, type BarData } from './elements/bar';
 export { KdCard, type CardData } from './elements/card';
 export { KdCode, highlighter, lineSet } from './elements/code';
@@ -50,6 +53,7 @@ export { KdMeter, type MeterData, type MeterMark } from './elements/meter';
 export { KdPill } from './elements/pill';
 export { KdReveal } from './elements/reveal';
 export { KdSheet, type SheetData, type SheetRow } from './elements/sheet';
+export { KdSplit, type SplitDetail, type SplitItem } from './elements/split';
 export { KdStatus, checkTone, type Check, type StatusData } from './elements/status';
 export { KdSteps, type Step, type StepStatus } from './elements/steps';
 export { KdTable, type TableColumn, type TableData } from './elements/table';

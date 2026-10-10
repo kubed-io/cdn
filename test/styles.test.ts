@@ -85,3 +85,11 @@ it('kd.css grid columns shrink to a narrow panel', () => {
   expect(minmaxes.length).toBeGreaterThan(0);
   for (const min of minmaxes) expect(min, `minmax(${min}, …)`).toMatch(/^min\(\d+px, 100%\)$/);
 });
+
+// auto-fill keeps empty tracks, so two cards in a wide panel leave a blank third column;
+// auto-fit lets the cards share the row.
+it('kd.css card columns fill the row', () => {
+  const kd = sheets.find((s) => s.file === 'kd/kd.css')!.css;
+  const rule = kd.match(/\.kd \.cols\s*\{([^}]*)\}/)?.[1] ?? '';
+  expect(rule).toMatch(/repeat\(auto-fit,/);
+});
