@@ -64,3 +64,16 @@ it('kd.css ships the layout and text utilities', () => {
     expect(selectors, want).toContain(want);
   }
 });
+
+// Grafana's global `.badge, .label` rule (background, padding, inline-block, text-shadow, nowrap)
+// reaches light-DOM markup; the kd versions must undo each of those properties.
+it.each(['.kd .label', '.kd .badge'])('%s overrides Grafana\'s global .badge, .label rule', (selector) => {
+  const kd = sheets.find((s) => s.file === 'kd/kd.css')!.css;
+  const body = [...kd.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+    .filter(([, s]) => s.split(',').map((x) => x.trim()).includes(selector))
+    .map(([, , b]) => b)
+    .join(';');
+  for (const prop of ['display', 'padding', 'background', 'text-shadow', 'white-space', 'font-weight', 'line-height']) {
+    expect(body, `${selector} sets ${prop}`).toMatch(new RegExp(`(^|[;\\s])${prop}(-color)?\\s*:`));
+  }
+});

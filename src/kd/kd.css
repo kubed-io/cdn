@@ -51,16 +51,20 @@
   background: var(--kd-bg-2);
 }
 
-/* Badges */
+/* Badges. Grafana's global `.badge, .label` rule (grey background, padding,
+   text-shadow, nowrap) reaches this markup, so both undo every property it sets. */
 
 .kd .badge {
   display: inline-block;
   padding: 0 calc(var(--kd-space) * 0.75);
   border: 1px solid var(--kd-border-strong);
   border-radius: var(--kd-radius);
+  background: transparent;
   color: var(--kd-text-2);
   font-size: 0.85em;
+  font-weight: inherit;
   line-height: 1.6;
+  text-shadow: none;
   white-space: nowrap;
 }
 
@@ -175,7 +179,14 @@
 }
 
 .kd .label {
+  display: block;
   margin-bottom: 2px;
+  padding: 0;
+  background: transparent;
+  font-weight: inherit;
+  line-height: inherit;
+  text-shadow: none;
+  white-space: normal;
   font-size: 10px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
