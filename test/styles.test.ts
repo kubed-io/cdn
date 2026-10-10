@@ -56,3 +56,32 @@ describe.each(sheets)('$file', ({ css }) => {
     expect(css, 'a stylesheet defines a --kd-* property').not.toMatch(/(^|[;{\s])--kd-[\w-]+\s*:/);
   });
 });
+
+it('kd.css ships the layout and text utilities', () => {
+  const kd = sheets.find((s) => s.file === 'kd/kd.css')!.css;
+  const selectors = [...kd.matchAll(/([^{}]+)\{[^{}]*\}/g)].flatMap(([, s]) => s.split(',').map((x) => x.trim()));
+  for (const want of ['.kd .cols', '.kd .tiles', '.kd .parts', '.kd .part', '.kd h3', '.kd .label', '.kd .mono', '.kd .sub', '.kd .none']) {
+    expect(selectors, want).toContain(want);
+  }
+});
+
+// Grafana's global `.badge, .label` rule (background, padding, inline-block, text-shadow, nowrap)
+// reaches light-DOM markup; the kd versions must undo each of those properties.
+it.each(['.kd .label', '.kd .badge'])('%s overrides Grafana\'s global .badge, .label rule', (selector) => {
+  const kd = sheets.find((s) => s.file === 'kd/kd.css')!.css;
+  const body = [...kd.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+    .filter(([, s]) => s.split(',').map((x) => x.trim()).includes(selector))
+    .map(([, , b]) => b)
+    .join(';');
+  for (const prop of ['display', 'padding', 'background', 'text-shadow', 'white-space', 'font-weight', 'line-height']) {
+    expect(body, `${selector} sets ${prop}`).toMatch(new RegExp(`(^|[;\\s])${prop}(-color)?\\s*:`));
+  }
+});
+
+// A fixed column minimum cannot shrink: a narrow panel or a phone would scroll sideways.
+it('kd.css grid columns shrink to a narrow panel', () => {
+  const kd = sheets.find((s) => s.file === 'kd/kd.css')!.css;
+  const minmaxes = [...kd.matchAll(/minmax\((min\([^)]*\)|[^,]+),/g)].map(([, min]) => min.trim());
+  expect(minmaxes.length).toBeGreaterThan(0);
+  for (const min of minmaxes) expect(min, `minmax(${min}, …)`).toMatch(/^min\(\d+px, 100%\)$/);
+});

@@ -14,6 +14,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `kd.js`: `<kd-status>` shows the health of anything as a headline and a strip of toned check badges.
+- `kd.js`: `<kd-card>` is a bordered block with a tone accent, a header, a state line and a body.
+- `kd.js`: `<kd-reveal>` shows or hides every `<kd-mask>` in its container at once.
+- `kd.js`: `<kd-sheet layout="grid">` lays rows out as label-over-value tiles, and `mono` sets keys in monospace.
+- `kd.js`: `<kd-table>` takes row-header columns and a `blank` placeholder for empty cells.
+- `kd.js`: `age` and `duration` for any dashboard (`k8s.js` still exports them).
+- `kd.css`: `.cols`, `.tiles`, `.parts`/`.part` layouts and `h3`, `.label`, `.mono`, `.sub`, `.none` text.
+
+### Changed
+
+- `k8s.js`: `conditions()` returns `<kd-status>` checks, and `<kd-k8s-object>` shows conditions as status badges.
+- `kd-sheet` renders nothing when every row is empty.
+
+### Fixed
+
+- `kd.css`: `.badge` (and the new `.label`) undo Grafana's global `.badge, .label` style: no grey background or text shadow.
+
 ## [0.0.6] - 2026-10-08
 
 ### Added

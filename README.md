@@ -12,7 +12,7 @@
 | Entry | What it brings |
 |---|---|
 | `dist/kd.js` | 🎨 the core: the theme layer, the Grafana page helpers, and every generic element |
-| `dist/kd.css` | text, links, tables, badges, code and cards for plain `.kd` markup |
+| `dist/kd.css` | text, links, tables, badges, code, cards, and column/tile/part layouts for plain `.kd` markup |
 | `dist/openapi.js` | 📜 `<kd-schema>`: any OpenAPI v3 or JSON Schema, kubectl-explain style, rendered lazily |
 | `dist/k8s.js` | ☸️ Kubernetes objects mapped onto the core elements: `<kd-k8s-object>`, `<kd-k8s-ref>`, `<kd-k8s-events>` |
 | `dist/n8n.js` | 💬 `mount(config)`: the n8n agent chat tile for app dashboards |
@@ -24,8 +24,9 @@ The entries share chunks, so a page that loads several pays for Lit and the core
 
 | | |
 |---|---|
-| `kd-pill` `kd-tile` `kd-link` `kd-mask` | small things: a toned pill, a header tile, a dashboard link that keeps the time range and a back chain, a click-to-reveal value |
-| `kd-bar` `kd-sheet` `kd-table` | a title bar with chips and a breadcrumb, a property sheet, a table; cells can be text, pills, links, code or data |
+| `kd-pill` `kd-tile` `kd-link` `kd-mask` `kd-reveal` | small things: a toned pill, a header tile, a dashboard link that keeps the time range and a back chain, a click-to-reveal value, one toggle for every masked value around it |
+| `kd-bar` `kd-sheet` `kd-table` | a title bar with chips and a breadcrumb, a property sheet (or a grid of label-over-value tiles), a table with optional row headers; cells can be text, pills, links, code or data |
+| `kd-status` `kd-card` | the health of anything as a headline and toned check badges; a bordered block with a tone accent, a header, a state line and a body |
 | `kd-groups` `kd-data` | labels as grouped pills, annotations as a tree; any JSON value as folded YAML |
 | `kd-tabs` `kd-steps` `kd-meter` | tabs that remember their choice, a stepper, a value against request/limit marks |
 | `kd-markdown` `kd-code` | GitHub-flavoured markdown, sanitised; syntax highlighting with line numbers, in 190+ languages loaded one at a time |

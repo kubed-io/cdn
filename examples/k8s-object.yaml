@@ -18,7 +18,7 @@ spec:
             kind: DataQuery
             group: yesoreyeram-infinity-datasource
             datasource:
-              name: b6273e2d-94eb-457c-ae1e-0a2b06b1befd
+              name: kubernetes
             spec:
               type: json
               source: url

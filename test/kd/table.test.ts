@@ -40,4 +40,37 @@ describe('kd-table', () => {
     await update(el, { empty: 'No events' });
     expect(shadow(el).querySelector('.none')?.textContent).toBe('No events');
   });
+
+  it('renders a header column as row headers', async () => {
+    const el = await mount<KdTable>(`<kd-table></kd-table>`);
+    await update(el, {
+      data: {
+        columns: [{ key: 'name', header: true }, { key: 'cpu' }],
+        rows: [{ name: 'app', cpu: '100m' }, { name: 'sidecar', cpu: '10m' }],
+      },
+    });
+    for (const tr of shadow(el).querySelectorAll('tbody tr')) {
+      expect(tr.children[0].localName).toBe('th');
+      expect(tr.children[0].getAttribute('scope')).toBe('row');
+      expect(tr.children[1].localName).toBe('td');
+    }
+  });
+
+  it('fills empty cells with blank', async () => {
+    const el = await mount<KdTable>(`<kd-table blank="·"></kd-table>`);
+    await update(el, {
+      data: {
+        columns: [{ key: 'name', header: true }, { key: 'a' }, { key: 'b' }, { key: 'c' }, { key: 'd' }],
+        rows: [{ name: '', a: '', b: null, d: [] }],
+      },
+    });
+    expect(grid(el)[1]).toEqual(['·', '·', '·', '·', '·']);
+    expect(shadow(el).querySelector('tbody th')?.textContent?.trim()).toBe('·');
+  });
+
+  it('leaves empty cells empty without blank', async () => {
+    const el = await mount<KdTable>(`<kd-table></kd-table>`);
+    await update(el, { data: { columns: [{ key: 'a' }, { key: 'b' }], rows: [{ a: 'x', b: '' }] } });
+    expect(grid(el)[1]).toEqual(['x', '']);
+  });
 });

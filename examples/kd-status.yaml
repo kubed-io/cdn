@@ -1,0 +1,38 @@
+# <kd-status> on any dashboard, with no k8s import: Prometheus' `up` per job as one headline pill
+# and a badge per job. The dashboard maps its own rows onto { headline, checks }.
+# Needs the hidden `assets` constant (https://cdn.jsdelivr.net/npm/@kubed.io/cdn@X.Y.Z/dist).
+kind: Panel
+spec:
+  title: ''
+  transparent: true
+  data:
+    kind: QueryGroup
+    spec:
+      queries:
+      - kind: PanelQuery
+        spec:
+          refId: A
+          query:
+            kind: DataQuery
+            group: prometheus
+            datasource:
+              name: prometheus
+            spec:
+              expr: min by (job) (up)
+              format: table
+              instant: true
+  vizConfig:
+    kind: marcusolsson-dynamictext-panel
+    spec:
+      options:
+        renderMode: allRows
+        content: <div class="kd"><kd-status></kd-status></div>
+        defaultContent: <div class="kd"><div class="none">No targets.</div></div>
+        afterRender: |-
+          import(context.grafana.replaceVariables('${assets}') + '/kd.js').then((m) => {
+            const checks = context.data.map((r) => ({ label: r.job, ok: r.Value === 1 }));
+            const down = checks.filter((c) => !c.ok).length;
+            const headline = [{ text: down ? `${down} down` : 'all up', tone: down ? 'error' : 'success' }];
+            m.feed(context, { 'kd-status': { data: { headline, checks } } });
+          });
+        styles: '.dt-row { height: 100%; padding: 4px 0 0; }'

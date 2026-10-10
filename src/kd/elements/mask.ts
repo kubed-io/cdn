@@ -4,6 +4,26 @@ import { define } from '../define';
 import { KdElement, base } from '../element';
 
 /**
+ * Shows or hides every `kd-mask` inside `container`, looking into open shadow
+ * roots; returns how many changed. It finds masks in the DOM rather than in a
+ * registry, so it also reaches masks of an earlier release that owns the tag.
+ */
+export function revealAll(container: Node, shown: boolean): number {
+  let changed = 0;
+  const visit = (root: Element | ShadowRoot | Document | DocumentFragment) => {
+    for (const el of root.querySelectorAll('*')) {
+      if (el.localName === 'kd-mask' && (el as KdMask).shown !== shown) {
+        (el as KdMask).shown = shown;
+        changed++;
+      }
+      if (el.shadowRoot) visit(el.shadowRoot);
+    }
+  };
+  if ('querySelectorAll' in container) visit(container as Element);
+  return changed;
+}
+
+/**
  * A secret value, hidden until clicked. The value never reaches a tooltip, the
  * console or any other attribute, and the dots do not give away its length.
  *

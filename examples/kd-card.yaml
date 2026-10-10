@@ -1,0 +1,86 @@
+# One <kd-card> per container of a pod: the state in the card's tone, image and ports as a grid sheet,
+# resources as a table with a row-header column, and literal env values masked under one <kd-reveal>.
+# The dashboard does the mapping; the components only draw. Laid out in .kd .cols.
+# Needs the hidden `assets` constant and the variables app_namespace and pod, like k8s-pod.
+kind: Panel
+spec:
+  title: ''
+  transparent: true
+  data:
+    kind: QueryGroup
+    spec:
+      queries:
+      - kind: PanelQuery
+        spec:
+          refId: A
+          query:
+            kind: DataQuery
+            group: yesoreyeram-infinity-datasource
+            datasource:
+              name: kubernetes
+            spec:
+              type: json
+              source: url
+              parser: jq-backend
+              format: table
+              url: https://kubernetes.default.svc/api/v1/namespaces/${app_namespace}/pods/${pod}
+              url_options:
+                method: GET
+                headers:
+                - key: Accept
+                  value: application/json
+              root_selector: '[{doc: tojson}]'
+              columns:
+              - selector: doc
+                text: doc
+                type: string
+  vizConfig:
+    kind: marcusolsson-dynamictext-panel
+    spec:
+      options:
+        renderMode: allRows
+        content: <div class="kd"><div class="cols"></div></div>
+        defaultContent: <div class="kd"><div class="none">Not found.</div></div>
+        afterRender: |-
+          import(context.grafana.replaceVariables('${assets}') + '/kd.js').then((m) => {
+            m.applyTheme(context.element, context.grafana.theme);
+            const pod = JSON.parse(context.data[0].doc);
+            const statuses = Object.fromEntries((pod.status?.containerStatuses ?? []).map((s) => [s.name, s]));
+            const el = (tag, props = {}, attrs = {}) => {
+              const e = Object.assign(document.createElement(tag), props);
+              for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+              return e;
+            };
+            const cols = context.element.querySelector('.cols');
+            cols.replaceChildren(...pod.spec.containers.map((c) => {
+              const s = statuses[c.name] ?? {};
+              const [state, detail] = Object.entries(s.state ?? {})[0] ?? ['unknown', {}];
+              const tone = { running: 'success', waiting: 'warning', terminated: 'error' }[state] ?? 'neutral';
+              const card = el('kd-card', { data: {
+                name: c.name, tone, state, message: detail.reason,
+                cells: [{ text: `${s.restartCount ?? 0} restarts`, tone: s.restartCount ? 'warning' : 'neutral' }],
+              } });
+              card.append(
+                el('kd-sheet', { data: [
+                  { key: 'Image', value: { code: c.image }, wide: true },
+                  { key: 'Ports', value: (c.ports ?? []).map((p) => `${p.containerPort}/${p.protocol}`) },
+                  { key: 'Started', value: m.age(detail.startedAt) },
+                ] }, { layout: 'grid' }),
+                el('kd-table', { data: {
+                  columns: [{ key: 'r', label: '', header: true }, { key: 'requests' }, { key: 'limits' }],
+                  rows: ['cpu', 'memory'].map((r) => ({ r, requests: c.resources?.requests?.[r], limits: c.resources?.limits?.[r] })),
+                } }, { blank: '·' }),
+              );
+              const env = (c.env ?? []).filter((e) => e.value !== undefined);
+              if (env.length) {
+                const box = el('div', {}, { class: 'part' });
+                // kd-reveal reaches the masks in its own parent, so it sits in the box beside them.
+                box.append(el('h3', { textContent: 'Env' }), el('kd-reveal'), ...env.flatMap((e) => [
+                  el('div', { textContent: e.name }, { class: 'label' }), el('kd-mask', {}, { value: e.value }),
+                ]));
+                card.append(box);
+              }
+              return card;
+            }));
+          });
+        styles: '.dt-row { height: 100%; padding: 4px 0 0; }'
