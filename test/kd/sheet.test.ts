@@ -66,4 +66,10 @@ describe('kd-sheet', () => {
     await update(el, { mono: false });
     expect(shadow(el).querySelector('dl')?.classList.contains('mono')).toBe(false);
   });
+
+  it('grid tiles shrink to a narrow panel', async () => {
+    const { KdSheet } = await import('../../src/kd');
+    const css = [KdSheet.styles].flat(Infinity).map((x) => String((x as { cssText?: string }).cssText ?? '')).join('');
+    expect(css).toContain('minmax(min(190px, 100%), 1fr)');
+  });
 });

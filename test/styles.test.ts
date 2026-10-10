@@ -77,3 +77,11 @@ it.each(['.kd .label', '.kd .badge'])('%s overrides Grafana\'s global .badge, .l
     expect(body, `${selector} sets ${prop}`).toMatch(new RegExp(`(^|[;\\s])${prop}(-color)?\\s*:`));
   }
 });
+
+// A fixed column minimum cannot shrink: a narrow panel or a phone would scroll sideways.
+it('kd.css grid columns shrink to a narrow panel', () => {
+  const kd = sheets.find((s) => s.file === 'kd/kd.css')!.css;
+  const minmaxes = [...kd.matchAll(/minmax\((min\([^)]*\)|[^,]+),/g)].map(([, min]) => min.trim());
+  expect(minmaxes.length).toBeGreaterThan(0);
+  for (const min of minmaxes) expect(min, `minmax(${min}, …)`).toMatch(/^min\(\d+px, 100%\)$/);
+});

@@ -3,28 +3,23 @@ import { css, html, type PropertyValues } from 'lit';
 import { define } from '../define';
 import { KdElement, base } from '../element';
 
-// Every connected mask, so kd-reveal can reach masks inside other shadow roots.
-const masks = new Set<KdMask>();
-
-// Whether `node` sits inside `container`, looking through shadow roots.
-function within(node: Node, container: Node): boolean {
-  let at: Node | null = node.parentNode;
-  while (at) {
-    if (at === container) return true;
-    at = at instanceof ShadowRoot ? at.host : at.parentNode;
-  }
-  return false;
-}
-
-/** Shows or hides every connected `kd-mask` inside `container`; returns how many changed. */
+/**
+ * Shows or hides every `kd-mask` inside `container`, looking into open shadow
+ * roots; returns how many changed. It finds masks in the DOM rather than in a
+ * registry, so it also reaches masks of an earlier release that owns the tag.
+ */
 export function revealAll(container: Node, shown: boolean): number {
   let changed = 0;
-  for (const mask of masks) {
-    if (mask.shown !== shown && within(mask, container)) {
-      mask.shown = shown;
-      changed++;
+  const visit = (root: Element | ShadowRoot | Document | DocumentFragment) => {
+    for (const el of root.querySelectorAll('*')) {
+      if (el.localName === 'kd-mask' && (el as KdMask).shown !== shown) {
+        (el as KdMask).shown = shown;
+        changed++;
+      }
+      if (el.shadowRoot) visit(el.shadowRoot);
     }
-  }
+  };
+  if ('querySelectorAll' in container) visit(container as Element);
   return changed;
 }
 
@@ -74,16 +69,6 @@ export class KdMask extends KdElement {
   constructor() {
     super();
     this.shown = false;
-  }
-
-  override connectedCallback(): void {
-    super.connectedCallback();
-    masks.add(this);
-  }
-
-  override disconnectedCallback(): void {
-    super.disconnectedCallback();
-    masks.delete(this);
   }
 
   // A new value starts hidden again.

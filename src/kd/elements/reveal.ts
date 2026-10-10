@@ -9,7 +9,7 @@ import { revealAll } from './mask';
  * elements' shadow roots. Masks still toggle one at a time, and the values
  * never leave them. Removing a shown toggle hides what it revealed.
  *
- * `<div><kd-reveal></kd-reveal> <kd-sheet …></kd-sheet></div>`
+ * `<div class="part"><kd-reveal></kd-reveal> <kd-mask value="…"></kd-mask> <kd-mask value="…"></kd-mask></div>`
  */
 export class KdReveal extends KdElement {
   static override properties = { shown: { state: true } };
