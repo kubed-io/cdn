@@ -4,8 +4,9 @@ import type { BarData } from '../kd/elements/bar';
 import type { GroupsData } from '../kd/elements/groups';
 import type { MeterData, MeterMark } from '../kd/elements/meter';
 import type { SheetRow } from '../kd/elements/sheet';
-import type { Step, StepStatus } from '../kd/elements/steps';
+import type { Check } from '../kd/elements/status';
 import type { Tone } from '../kd/parts';
+import { age, duration } from '../kd/time';
 import { kindIcon } from './icons';
 import { kindLink, namespaceLink, refLink, WORKLOAD_KINDS, type RefCell } from './links';
 
@@ -105,22 +106,7 @@ export function quantity(value: string | number | null | undefined): number {
   return n * SUFFIXES[m[3] ?? ''];
 }
 
-/** Seconds as kubectl-ish text: `42s`, `5m`, `3h 12m`, `2d 4h`. */
-export function duration(seconds: number): string {
-  const s = Math.max(0, Math.floor(seconds));
-  if (s < 60) return `${s}s`;
-  if (s < 3600) return `${Math.floor(s / 60)}m`;
-  if (s < 86400) return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
-  return `${Math.floor(s / 86400)}d ${Math.floor((s % 86400) / 3600)}h`;
-}
-
 const ms = (iso: string | null | undefined) => (iso ? Date.parse(iso) : NaN);
-
-/** How long ago a timestamp was, or '' without one. */
-export function age(iso: string | null | undefined, now = Date.now()): string {
-  const t = ms(iso);
-  return Number.isFinite(t) ? duration((now - t) / 1000) : '';
-}
 
 // --- resources -----------------------------------------------------------------
 
@@ -214,11 +200,12 @@ export function conditionOk(c: Condition): boolean | null {
 const because = (c: Condition) => [c.reason, c.message].filter((s) => s != null && s !== '').join(': ');
 
 /**
- * The object's conditions as steps, in the order they happen for the kinds
- * that have one: done when good, failed when bad, warning when unknown. The
- * time is how long after creation the condition last changed.
+ * The object's conditions as kd-status checks, in the order they happen for
+ * the kinds that have one: ok when good, not ok when bad, null when unknown.
+ * `when` is how long after creation the condition last changed; `detail` is
+ * the reason and message.
  */
-export function conditions(obj: K8sObject | null | undefined): Step[] {
+export function conditions(obj: K8sObject | null | undefined): Check[] {
   const list: Condition[] = Array.isArray(obj?.status?.conditions) ? obj.status.conditions : [];
   const order = CONDITION_ORDER[obj?.kind ?? ''] ?? [];
   const rank = (c: Condition) => (order.includes(c.type) ? order.indexOf(c.type) : order.length);
@@ -227,13 +214,12 @@ export function conditions(obj: K8sObject | null | undefined): Step[] {
     .sort((a, b) => rank(a) - rank(b) || (ms(a.lastTransitionTime) || 0) - (ms(b.lastTransitionTime) || 0))
     .map((c) => {
       const ok = conditionOk(c);
-      const status: StepStatus = ok === true ? 'done' : ok === false ? 'failed' : 'warning';
-      const step: Step = { label: CONDITION_LABELS[c.type] ?? c.type, status };
+      const check: Check = { label: CONDITION_LABELS[c.type] ?? c.type, ok };
       const changed = ms(c.lastTransitionTime);
-      if (Number.isFinite(changed) && Number.isFinite(created)) step.time = `+${duration((changed - created) / 1000)}`;
+      if (Number.isFinite(changed) && Number.isFinite(created)) check.when = `+${duration((changed - created) / 1000)}`;
       const why = because(c);
-      if (why && ok !== true) step.detail = why;
-      return step;
+      if (why) check.detail = why;
+      return check;
     });
 }
 

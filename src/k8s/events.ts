@@ -3,7 +3,7 @@
 import type { Cell } from '../kd/cell';
 import type { TableColumn, TableData } from '../kd/elements/table';
 import { refLink, namespaceLink } from './links';
-import { duration } from './map';
+import { duration } from '../kd/time';
 
 /** The labels the kube-events source puts on each line. */
 export interface EventLabels {

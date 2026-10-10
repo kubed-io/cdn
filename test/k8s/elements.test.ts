@@ -81,7 +81,9 @@ describe('kd-k8s-object', () => {
     await update(el, { data: pod, now: Date.parse('2026-10-07T12:00:00Z') });
     const root = shadow(el);
     expect(text(inner(el, 'kd-bar'))).toContain('web-5c57db9dff-6fkrm');
-    expect(root.querySelector('kd-steps')).not.toBeNull();
+    expect(root.querySelector('kd-steps')).toBeNull();
+    const status = root.querySelector('kd-status') as (Element & { data?: { checks?: unknown[] } }) | null;
+    expect(status?.data?.checks).toHaveLength(5);
     const labels = [...root.querySelectorAll('kd-tabs > section')].map((s) => [s.getAttribute('label'), s.getAttribute('count')]);
     expect(labels).toEqual([
       ['Summary', null],
@@ -101,12 +103,12 @@ describe('kd-k8s-object', () => {
     expect(pane?.getAttribute('count')).toBe('6');
   });
 
-  it('renders from the data attribute and re-renders a node without steps', async () => {
+  it('renders from the data attribute and re-renders an object without conditions', async () => {
     const json = JSON.stringify(copy(node)).replace(/'/g, '&#39;');
     const el = await mount<KdK8sObject>(`<kd-k8s-object data='${json}'></kd-k8s-object>`);
     expect(text(inner(el, 'kd-bar'))).toContain('node-5');
     await update(el, { data: { kind: 'Thing', metadata: { name: 'x' } } });
-    expect(shadow(el).querySelector('kd-steps')).toBeNull();
+    expect(shadow(el).querySelector('kd-status')).toBeNull();
     expect(text(inner(el, 'kd-bar'))).toContain('x');
     await update(el, { data: undefined });
     await settle(el);

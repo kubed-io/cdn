@@ -37,6 +37,7 @@ export {
 } from './cell';
 export { renderIcon, safeHref, tone, tones, type Tone } from './parts';
 export { toYaml, yamlLines, quote, type YamlKind, type YamlLine, type YamlToken } from './yaml';
+export { age, duration } from './time';
 export { KdBar, type BarData } from './elements/bar';
 export { KdCard, type CardData } from './elements/card';
 export { KdCode, highlighter, lineSet } from './elements/code';

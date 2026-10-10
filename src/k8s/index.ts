@@ -8,6 +8,7 @@ import './elements/ref';
 
 export { VERSION } from '../kd/define';
 export { applyTheme } from '../kd/theme';
+export { age, duration } from '../kd/time';
 export { CRD_ICON, DEFAULT_ICON, GROUP_ICONS, KIND_ICONS, apiGroup, isBuiltInGroup, kindIcon } from './icons';
 export {
   DASHBOARDS,
@@ -28,13 +29,11 @@ export {
 export {
   HIDDEN_ANNOTATIONS,
   NEGATIVE_CONDITIONS,
-  age,
   annotations,
   bar,
   chips,
   conditionOk,
   conditions,
-  duration,
   labels,
   owners,
   quantity,

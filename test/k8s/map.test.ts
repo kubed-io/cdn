@@ -22,20 +22,20 @@ const row = (rows: SheetRow[], key: string): Cell => rows.find((r) => r.key === 
 describe('conditions', () => {
   it('orders a pod in the kubelet lifecycle, timed from creation', () => {
     expect(conditions(pod)).toEqual([
-      { label: 'Scheduled', status: 'done', time: '+1s' },
-      { label: 'Sandbox', status: 'done', time: '+2s' },
-      { label: 'Initialized', status: 'done', time: '+1s' },
-      { label: 'Containers', status: 'done', time: '+7d 8h' },
-      { label: 'Ready', status: 'done', time: '+7d 8h' },
+      { label: 'Scheduled', ok: true, when: '+1s' },
+      { label: 'Sandbox', ok: true, when: '+2s' },
+      { label: 'Initialized', ok: true, when: '+1s' },
+      { label: 'Containers', ok: true, when: '+7d 8h' },
+      { label: 'Ready', ok: true, when: '+7d 8h' },
     ]);
   });
 
   it('reads a node pressure condition as good when False', () => {
-    expect(conditions(node).map((s) => [s.label, s.status])).toEqual([
-      ['Memory', 'done'],
-      ['Disk', 'done'],
-      ['PIDs', 'done'],
-      ['Ready', 'done'],
+    expect(conditions(node).map((s) => [s.label, s.ok])).toEqual([
+      ['Memory', true],
+      ['Disk', true],
+      ['PIDs', true],
+      ['Ready', true],
     ]);
   });
 
@@ -54,13 +54,13 @@ describe('conditions', () => {
       message: 'containers with unready status: [web]',
     });
     p.status.conditions.push({ type: 'DisruptionTarget', status: 'True', reason: 'EvictionByEvictionAPI' });
-    const steps = conditions(p);
-    expect(steps.find((s) => s.label === 'Ready')?.status).toBe('failed');
-    expect(steps.find((s) => s.label === 'Containers')).toMatchObject({
-      status: 'warning',
+    const checks = conditions(p);
+    expect(checks.find((s) => s.label === 'Ready')?.ok).toBe(false);
+    expect(checks.find((s) => s.label === 'Containers')).toMatchObject({
+      ok: null,
       detail: 'ContainersNotReady: containers with unready status: [web]',
     });
-    expect(steps.at(-1)).toEqual({ label: 'DisruptionTarget', status: 'failed', detail: 'EvictionByEvictionAPI' });
+    expect(checks.at(-1)).toEqual({ label: 'DisruptionTarget', ok: false, detail: 'EvictionByEvictionAPI' });
   });
 });
 

@@ -4,7 +4,7 @@ import '../../kd/elements/bar';
 import '../../kd/elements/data';
 import '../../kd/elements/groups';
 import '../../kd/elements/sheet';
-import '../../kd/elements/steps';
+import '../../kd/elements/status';
 import '../../kd/elements/tabs';
 import './events';
 import { define } from '../../kd/define';
@@ -13,7 +13,7 @@ import { annotations, bar, conditions, labels, summary, trimmed, type K8sObject 
 
 /**
  * The generic page of one Kubernetes object, composed from the kd elements:
- * the title bar, the conditions as steps, then tabs for the summary sheet,
+ * the title bar, the conditions as status badges, then tabs for the summary sheet,
  * labels, annotations, events (when `events` is set: the panel's Loki frames)
  * and the YAML. `related` objects extend the owner chain; `key` keeps the
  * open tab per view; `now` (ms) pins the ages.
@@ -49,13 +49,13 @@ export class KdK8sObject extends KdElement {
     const o = this.data;
     if (!o || typeof o !== 'object') return nothing;
     const opt = { now: this.now, related: this.related };
-    const steps = conditions(o);
+    const checks = conditions(o);
     const l = labels(o);
     const a = annotations(o);
     const count = (map: object) => String(Object.keys(map).length);
     return html`<div class="page">
       <kd-bar .data=${bar(o, opt)}></kd-bar>
-      ${steps.length ? html`<kd-steps .data=${steps}></kd-steps>` : nothing}
+      ${checks.length ? html`<kd-status .data=${{ checks }}></kd-status>` : nothing}
       <kd-tabs key=${this.key ?? nothing}>
         <section label="Summary"><kd-sheet .data=${summary(o, opt)}></kd-sheet></section>
         <section label="Labels" count=${count(l)}><kd-groups mode="pills" .data=${l}></kd-groups></section>
