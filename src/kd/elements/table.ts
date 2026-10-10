@@ -1,6 +1,6 @@
 import { css, html, nothing } from 'lit';
 
-import { cellStyles, renderCell, type Cell } from '../cell';
+import { cellStyles, isEmpty, renderCell, type Cell } from '../cell';
 import { define } from '../define';
 import { KdElement, base, json } from '../element';
 
@@ -11,6 +11,8 @@ export interface TableColumn {
   align?: 'left' | 'center' | 'right';
   /** Keep the cell on one line (counts, times, short pills). */
   nowrap?: boolean;
+  /** Its cells are the rows' headers (`<th scope="row">`). */
+  header?: boolean;
 }
 
 export interface TableData {
@@ -21,7 +23,8 @@ export interface TableData {
 
 /**
  * A small table of cells. `data` may also be just the rows. With no rows it
- * shows `empty` (default "none").
+ * shows `empty` (default "none"); an empty cell shows `blank` (default
+ * nothing).
  *
  * `el.data = { columns: [{ key: 'reason', label: 'Reason' }, { key: 'n', align: 'right' }], rows }`
  */
@@ -29,6 +32,7 @@ export class KdTable extends KdElement {
   static override properties = {
     data: { attribute: 'data', converter: json },
     empty: {},
+    blank: {},
   };
   static override styles = [
     base,
@@ -71,6 +75,17 @@ export class KdTable extends KdElement {
       .nowrap .cells {
         flex-wrap: nowrap;
       }
+      tbody th {
+        color: var(--kd-text, inherit);
+        font-size: inherit;
+        font-weight: 600;
+        letter-spacing: normal;
+        text-transform: none;
+        white-space: nowrap;
+      }
+      .blank {
+        color: var(--kd-text-dim, inherit);
+      }
       .none {
         padding: 8px 0;
         color: var(--kd-text-dim, inherit);
@@ -80,6 +95,7 @@ export class KdTable extends KdElement {
 
   declare data: TableData | TableData['rows'] | undefined;
   declare empty: string | undefined;
+  declare blank: string | undefined;
 
   override render() {
     const d = this.data;
@@ -98,7 +114,13 @@ export class KdTable extends KdElement {
       <tbody>
         ${rows.map(
           (row) => html`<tr>
-            ${cols.map((col) => html`<td class=${cls(col)}>${renderCell(row?.[col.key])}</td>`)}
+            ${cols.map((col) => {
+              const value = row?.[col.key];
+              const cell = isEmpty(value) ? html`<span class="blank">${this.blank ?? ''}</span>` : renderCell(value);
+              return col.header
+                ? html`<th scope="row" class=${cls(col)}>${cell}</th>`
+                : html`<td class=${cls(col)}>${cell}</td>`;
+            })}
           </tr>`,
         )}
       </tbody>
