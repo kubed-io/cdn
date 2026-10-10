@@ -7,6 +7,7 @@ export { kdjson, registerHelpers } from './helpers';
 
 // The generic elements. Each module registers its tag when imported.
 import './elements/bar';
+import './elements/card';
 import './elements/code';
 import './elements/data';
 import './elements/groups';
@@ -36,6 +37,7 @@ export {
 export { renderIcon, safeHref, tone, tones, type Tone } from './parts';
 export { toYaml, yamlLines, quote, type YamlKind, type YamlLine, type YamlToken } from './yaml';
 export { KdBar, type BarData } from './elements/bar';
+export { KdCard, type CardData } from './elements/card';
 export { KdCode, highlighter, lineSet } from './elements/code';
 export { KdData } from './elements/data';
 export { KdGroups, jsonValue, type GroupsData } from './elements/groups';
