@@ -1,7 +1,7 @@
 # cdn: a versioned web-component kit for Grafana panels
 
-Date: 2026-10-07. Status: round 2. Step 1 shipped as 0.0.3; steps 2-4 (the package side) are built on branch
-`bundle` per `docs/superpowers/plans/2026-10-07-cdn-bundle.md`; the dashboard switch-overs follow the release.
+Date: 2026-10-07. Status: round 4 (2026-10-10), components for every view, on branch `components`.
+Rounds 1-3 shipped as 0.0.3 to 0.0.6.
 
 This spec is deleted by the PR that completes this work; anything lasting moves to the README.
 
@@ -458,6 +458,91 @@ JavaScript does little more than hand over data and name the variables to drive.
    - writes the named variable.
 3. The Repo dashboard's README and Files tabs on the new elements behave as today. Their own JavaScript is under 1 KB
    per panel.
+
+## Round 4: components for every view
+
+Asked for by Dr K on 2026-10-10: the library should be a set of useful components and styles, and the
+dashboards are the individual kinds. A survey of the live instance that day (65 dashboards, 5.5 MB):
+
+- **Where the duplication is:** almost all of it is in the k8s folder: 2.4 MB in 17 dashboards.
+  - About 1 MB is the view stylesheet, copied into every Business Text panel's `styles`: 188 rules shared by two or more
+    dashboards, 954 KB of repeats.
+  - About 620 KB is `common.jq` pasted into Infinity `root_selector`s: `pill`, `esc`, the colours, `dur`, `ago`, `yaml`,
+    `labelgroups`, `annotree` and `resmeter`, each in 16 to 18 dashboards.
+- **Elsewhere:** the `apps` and `observe` dashboards are native panels with almost no custom code, and the n8n tile
+  already uses `n8n.js`.
+- **What already has a component:** most of what that stylesheet draws: the title bar, sheet, steps, pills, tabs, label
+  groups, annotation tree, YAML, events, meters, masked values and links.
+- **What doesn't:** this round adds those components, all of them generic, so any dashboard can use them.
+
+### Decisions
+
+| # | Decision | By |
+|---|---|---|
+| C26 | **Components and styles only.** The library ships no per-kind mapping; a dashboard is the kind, and maps its own data onto components. The `k8s` entry gains nothing this round apart from re-exports. | Dr K |
+| C27 | **`kd-status`**: the health of anything, as a headline of cells and a strip of toned check badges. It has no Kubernetes knowledge. | Dr K + recommended |
+| C28 | **`kd-card`**: a bordered block with an optional tone accent, a header (dot, name, cells), an optional state line, and a slot for its body. | recommended |
+| C29 | **`kd-sheet` gains `layout="grid"` and `mono`; `kd-table` gains row-header columns and a `blank` placeholder.** These are options on the existing elements, not new elements. | recommended |
+| C30 | **`kd-reveal`**: one toggle that shows or hides every `kd-mask` in its container. | recommended |
+| C31 | **`kd.css` gains layout and text utilities** (`.cols`, `.tiles`, `.parts`/`.part`, `h3`, `.label`, `.mono`, `.sub`, `.none`), all built on `--kd-*` with no colour literals. | recommended |
+| C32 | **`age` and `duration` move to `kd`** as generic time helpers. `k8s` re-exports them, and `conditions()` returns `kd-status` checks; `kd-k8s-object` shows them with `kd-status` instead of `kd-steps`. | recommended |
+
+### The components
+
+**`kd-status`**
+- Data: `{headline?: Cell[], checks?: Check[]}`, where `Check` is `{label, ok, when?, detail?}`:
+  - `ok`: `true` is success, `false` is error, `null` is unknown (shown as warning), or a `Tone` given outright;
+  - `when`: preformatted, for example `3m` or `+12s`.
+- Render:
+  - the headline renders through `renderCell`, so pills, links and text all work;
+  - each check is a badge: a toned dot with a glyph (✓ ✗ ? !), the label, and the `when`;
+  - a check that is not success shows its `detail` under the badge, and a success shows it as a tooltip;
+  - checks keep the order they are given in. With nothing to show, the element renders nothing.
+- Usage: `el.data = …` from afterRender or `feed()`, or `data="{{kdjson …}}"` from Handlebars.
+
+**`kd-card`**
+- Data: `{name?, icon?, tone?, cells?: Cell[], state?, message?}`.
+- Render:
+  - a `tone` draws the left accent and the header dot;
+  - `state` is a large word in that tone, with `message` under it;
+  - the default slot is the body: a `kd-sheet`, a `kd-tabs`, anything.
+- `kd.css`'s plain `.card` class stays, for markup that needs no header.
+
+**`kd-sheet`**
+- `layout="grid"`: label-over-value tiles that auto-fill columns (minimum 190px); a row with `wide: true` spans the full
+  width.
+- `mono`: keys in the monospace font, as for environment variables or annotation keys.
+- Rows with empty values are still left out, as today.
+
+**`kd-table`**
+- A column with `header: true` renders its cells as row headers (`<th scope="row">`).
+- `blank`: the text shown in an empty cell (none by default; the k8s views use `·`).
+
+**`kd-reveal`**
+- Rendering: a terse eye toggle.
+- Effect: it shows or hides every `kd-mask` inside its parent element, including masks inside other elements' shadow
+  roots.
+- Masks still toggle one at a time.
+- The values never leave the masks.
+
+**`kd.css`**
+- Layout:
+  - `.cols`: auto-fill columns, minimum 420px;
+  - `.tiles`: auto-fill columns, minimum 260px;
+  - `.parts` and `.part`: sections divided by a dashed rule.
+- Text:
+  - `h3`: a small uppercase section heading;
+  - `.label`: a small uppercase field label;
+  - `.mono`, `.sub` and `.none`.
+- Scoping: everything is scoped under `.kd`, as before.
+
+### Acceptance for round 4
+
+1. Each component has unit tests under happy-dom, and an `examples/` panel.
+2. A probe dashboard shows every new component and option in both themes, followed by a live theme switch. It is
+   deleted after the probe.
+3. `kd-k8s-object`'s conditions render as `kd-status`, and the `k8s-object` example still renders.
+4. Test, Quality and Package are green. The CHANGELOG's `[Unreleased]` section lists each addition in one short line.
 
 ## Out of scope
 
