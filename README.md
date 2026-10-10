@@ -28,7 +28,8 @@ The entries share chunks, so a page that loads several pays for Lit and the core
 | `kd-bar` `kd-sheet` `kd-table` | a title bar with chips and a breadcrumb, a property sheet (or a grid of label-over-value tiles), a table with optional row headers; cells can be text, pills, links, code or data |
 | `kd-status` `kd-card` | the health of anything as a headline and toned check badges; a bordered block with a tone accent, a header, a state line and a body |
 | `kd-groups` `kd-data` | labels as grouped pills, annotations as a tree; any JSON value as folded YAML |
-| `kd-tabs` `kd-steps` `kd-meter` | tabs that remember their choice, a stepper, a value against request/limit marks |
+| `kd-tabs` `kd-accordion` `kd-split` | tabs that remember their choice, collapsible sections on one page, a list beside the selected item |
+| `kd-steps` `kd-meter` | a stepper, a value against request/limit marks |
 | `kd-markdown` `kd-code` | GitHub-flavoured markdown, sanitised; syntax highlighting with line numbers, in 190+ languages loaded one at a time |
 | `kd-files` `kd-file` | a file explorer over any provider (a static list today, WebDAV later) that can drive a dashboard variable; one file shown with the right renderer |
 

@@ -14,6 +14,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `kd.js`: `<kd-accordion>` shows collapsible sections on one page; empty ones start folded, and what is open is remembered.
+- `kd.js`: `<kd-split>` lists items on the left and shows the selected one on the right, by click or arrow keys.
+
+### Changed
+
+- `kd.css`: `.cols` fits its cards to the row instead of leaving empty columns.
+
 ## [0.0.7] - 2026-10-10
 
 ### Added
