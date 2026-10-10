@@ -136,3 +136,63 @@
 .kd .card > :last-child {
   margin-bottom: 0;
 }
+
+/* Layout: columns of cards, tiles, and sections divided by a dashed rule */
+
+.kd .cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+  gap: 0 12px;
+}
+
+.kd .tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.kd .parts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  gap: 0 28px;
+}
+
+.kd .part {
+  margin-top: 12px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--kd-border);
+}
+
+/* Text */
+
+.kd h3 {
+  margin: 4px 0 10px;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--kd-text-2);
+}
+
+.kd .label {
+  margin-bottom: 2px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--kd-text-2);
+}
+
+.kd .mono {
+  font-family: var(--kd-font-mono);
+  font-size: 12px;
+}
+
+.kd .sub {
+  margin-top: 2px;
+  font-size: 11px;
+}
+
+.kd .none {
+  padding: 8px 0;
+  color: var(--kd-text-dim);
+}

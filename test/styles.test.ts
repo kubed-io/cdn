@@ -56,3 +56,11 @@ describe.each(sheets)('$file', ({ css }) => {
     expect(css, 'a stylesheet defines a --kd-* property').not.toMatch(/(^|[;{\s])--kd-[\w-]+\s*:/);
   });
 });
+
+it('kd.css ships the layout and text utilities', () => {
+  const kd = sheets.find((s) => s.file === 'kd/kd.css')!.css;
+  const selectors = [...kd.matchAll(/([^{}]+)\{[^{}]*\}/g)].flatMap(([, s]) => s.split(',').map((x) => x.trim()));
+  for (const want of ['.kd .cols', '.kd .tiles', '.kd .parts', '.kd .part', '.kd h3', '.kd .label', '.kd .mono', '.kd .sub', '.kd .none']) {
+    expect(selectors, want).toContain(want);
+  }
+});
