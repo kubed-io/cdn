@@ -14,6 +14,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `kd.js`: `<kd-shelf>` shows picture cards, posters or faces, in one sideways-scrolling row or a wrapping grid.
+- `kd.js`: `<kd-feature>` shows one thing at length: a big picture beside its title, facts, tags, text, actions and people.
+- `kd.js`: `rememberVariables` keeps a dashboard's search in the browser and restores it when a link carries none.
+- `kd.js`: `submitOnEnter` makes Enter in a form panel press its Submit button.
+
 ## [0.0.8] - 2026-10-10
 
 ### Added
