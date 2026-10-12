@@ -1,0 +1,67 @@
+# One <kd-shelf> row of film posters: IMDb's most popular films, each card linking back into the
+# dashboard with the film's id. The query's JSONata emits the shelf's own field names (title, image,
+# sub, href), so afterRender only hands the rows over. One row stays one height and scrolls sideways,
+# which is what keeps a collapsed Grafana row of these cheap.
+# Needs the hidden `assets` constant. IMDb's caching GraphQL endpoint takes no key.
+kind: Panel
+spec:
+  title: ''
+  transparent: true
+  data:
+    kind: QueryGroup
+    spec:
+      queries:
+      - kind: PanelQuery
+        spec:
+          refId: A
+          query:
+            kind: DataQuery
+            group: yesoreyeram-infinity-datasource
+            datasource:
+              name: imdb
+            spec:
+              type: json
+              source: url
+              parser: backend
+              format: table
+              url: https://caching.graphql.imdb.com/
+              url_options:
+                method: POST
+                body_type: raw
+                body_content_type: application/json
+                headers:
+                - key: x-imdb-client-name
+                  value: imdb-web-next
+                data: >-
+                  {"query":"query { advancedTitleSearch(first: 24, sort: {sortBy: POPULARITY, sortOrder:
+                  ASC}, constraints: {titleTypeConstraint: {anyTitleTypeIds: [\"movie\"]}}) { edges { node
+                  { title { id titleText { text } releaseYear { year } ratingsSummary { aggregateRating }
+                  primaryImage { url } } } } } }"}
+              root_selector: >-
+                $append([], data.advancedTitleSearch.edges.node.title.{"title": titleText.text,
+                "image": primaryImage.url ? $replace(primaryImage.url, /(\._V1_[^\/]*)?\.jpg$/,
+                "._V1_UX280_.jpg") : "", "sub": $join([$string(releaseYear.year),
+                ratingsSummary.aggregateRating ? "★" & $string(ratingsSummary.aggregateRating)], " · "),
+                "href": "/d/films/films?var-imdb=" & id})
+              columns:
+              - selector: title
+                text: title
+                type: string
+              - selector: image
+                text: image
+                type: string
+              - selector: sub
+                text: sub
+                type: string
+              - selector: href
+                text: href
+                type: string
+  vizConfig:
+    kind: marcusolsson-dynamictext-panel
+    spec:
+      options:
+        renderMode: allRows
+        content: <kd-shelf empty="No titles"></kd-shelf>
+        afterRender: |-
+          import(context.grafana.replaceVariables('${assets}') + '/kd.js')
+            .then((m) => m.feed(context, { 'kd-shelf': { items: context.data } }));
