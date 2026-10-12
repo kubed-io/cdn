@@ -9,8 +9,21 @@ export interface Fake {
   calls: string[];
 }
 
+// What Grafana's subscribeToState gives a variable: listeners told after each change.
+function subscribable() {
+  const listeners = new Set<(state: unknown) => void>();
+  return {
+    listeners,
+    subscribeToState(fn: (state: unknown) => void) {
+      listeners.add(fn);
+      return { unsubscribe: () => listeners.delete(fn) };
+    },
+  };
+}
+
 export function dropdown(name: string, value: unknown, options: string[], calls: string[]) {
   return {
+    ...subscribable(),
     state: { name, value, options: options.map((o) => ({ value: o, label: o.toUpperCase() })) },
     getValue() {
       return this.state.value;
@@ -18,12 +31,14 @@ export function dropdown(name: string, value: unknown, options: string[], calls:
     changeValueTo(value: unknown, label: unknown) {
       calls.push(`${name}=${value} (${label})`);
       this.state.value = value;
+      for (const fn of this.listeners) fn(this.state);
     },
   };
 }
 
 export function textbox(name: string, value: string, calls: string[]) {
   return {
+    ...subscribable(),
     state: { name, value },
     getValue() {
       return this.state.value;
@@ -31,6 +46,7 @@ export function textbox(name: string, value: string, calls: string[]) {
     setValue(value: string) {
       calls.push(`${name}=${value}`);
       this.state.value = value;
+      for (const fn of this.listeners) fn(this.state);
     },
   };
 }

@@ -544,6 +544,35 @@ dashboards are the individual kinds. A survey of the live instance that day (65 
 3. `kd-k8s-object`'s conditions render as `kd-status`, and the `k8s-object` example still renders.
 4. Test, Quality and Package are green. The CHANGELOG's `[Unreleased]` section lists each addition in one short line.
 
+## Round 5: picture cards and page habits
+
+Asked for by Dr K on 2026-10-12, while the Torrents dashboard (qbittorrent, uid `kekgpg4`) moved into git: anything in
+it that would make a useful component comes here, so the dashboard can load the cdn instead of carrying its own code.
+What it carries today:
+
+- **The Catalog tab:** seven Business Text panels with one identical 1.2 KB stylesheet and template, a sideways row of
+  poster cards each.
+- **The Find Title pane:** 10 KB of template, helpers, afterRender and styles for one film at length: poster, title,
+  facts, genres, plot, two buttons and a grid of cast faces.
+- **A 12 KB core text panel** with three page-wide jobs: remember the search in localStorage, follow an Add to the
+  Downloads tab, and make Enter submit a form panel.
+
+### Decisions
+
+| # | Decision | By |
+|---|---|---|
+| C33 | **`kd-shelf`**: picture cards (`{title, image?, sub?, href?, tip?}`) in one row that scrolls sideways, or a wrapping grid. Card width and picture ratio are attributes; nothing about films. | recommended |
+| C34 | **`kd-feature`**: one thing at length (`{title, sub?, image?, facts?: Cell[], tags?, text?, actions?, people?: ShelfItem[]}`). A button dispatches `action`; a panel adds its own actions in the `actions` slot. People render as a grid `kd-shelf`. | recommended |
+| C35 | **`rememberVariables` and `submitOnEnter`** join the scene helpers. Following an Add stays in the dashboard: it watches one table's action modal, which is not generic. | recommended |
+| C36 | **Page-wide state lives on one window property** (`__kdHabits`), not in a module, because the first cdn version loaded keeps its tags while a later one may run these helpers. | recommended |
+
+### Acceptance for round 5
+
+1. Each component and helper has unit tests under happy-dom, and the components have an `examples/` panel.
+2. No colour literal: buttons and frames take `--kd-*` and the tone classes, so both themes work.
+3. Test, Quality and Package are green. The CHANGELOG's `[Unreleased]` section lists each addition in one short line.
+4. The Torrents dashboard moves onto them after the release, in the qbittorrent repo.
+
 ## Out of scope
 
 - The schema-plus-data viewer and the editor (designed for; the next round).

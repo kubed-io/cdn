@@ -30,6 +30,7 @@ The entries share chunks, so a page that loads several pays for Lit and the core
 | `kd-groups` `kd-data` | labels as grouped pills, annotations as a tree; any JSON value as folded YAML |
 | `kd-tabs` `kd-accordion` `kd-split` | tabs that remember their choice, collapsible sections on one page, a list beside the selected item |
 | `kd-steps` `kd-meter` | a stepper, a value against request/limit marks |
+| `kd-shelf` `kd-feature` | a row (or grid) of picture cards such as posters or faces; one thing at length, a big picture beside its title, facts, tags, text, actions and people |
 | `kd-markdown` `kd-code` | GitHub-flavoured markdown, sanitised; syntax highlighting with line numbers, in 190+ languages loaded one at a time |
 | `kd-files` `kd-file` | a file explorer over any provider (a static list today, WebDAV later) that can drive a dashboard variable; one file shown with the right renderer |
 
@@ -104,6 +105,8 @@ dashboard variables themselves:
 content:     <kd-files variable="file"></kd-files>
 afterRender: import(base + "/kd.js").then(m => m.feed(context, { "kd-files": { entries: context.data } }))
 ```
+
+**Page habits.** `rememberVariables(context.element, key, names)` keeps a dashboard's search in this browser and brings it back when the dashboard is opened without one; `submitOnEnter(context.element)` makes Enter press a Business Forms panel's Submit. Both are safe to call from every render.
 
 Ready-made panels are in [`examples/`](examples).
 

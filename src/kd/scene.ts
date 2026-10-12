@@ -21,6 +21,7 @@ export interface SceneVariable {
   getValue(): unknown;
   changeValueTo?(value: unknown, text?: unknown): void;
   setValue?(value: string): void;
+  subscribeToState?(listener: (state: unknown) => void): { unsubscribe(): void };
 }
 
 export interface VariableSet {
@@ -489,4 +490,103 @@ export function fitPanel(content: HTMLElement, context: FitContext = {}): number
     if (parent?.setState && Array.isArray(parent.state?.children)) parent.setState({ children: [...parent.state.children] });
   }
   return h;
+}
+
+// --- page habits -----------------------------------------------------------------
+
+interface Remembered {
+  restored?: boolean;
+  stop?: () => void;
+}
+
+/** Page-wide state under one window property, so every cdn version on the page shares it. */
+function habits(win: Window): { remember: Record<string, Remembered>; enter?: boolean } {
+  const w = win as Window & { __kdHabits?: { remember: Record<string, Remembered>; enter?: boolean } };
+  w.__kdHabits ??= { remember: {} };
+  return w.__kdHabits;
+}
+
+/** The link the page was opened with, before Grafana rewrote the URL with its own values. */
+function openedWith(win: Window): URLSearchParams {
+  try {
+    const nav = win.performance?.getEntriesByType?.('navigation')?.[0] as { name?: string } | undefined;
+    return new URL(nav?.name || win.location.href).searchParams;
+  } catch {
+    return new URLSearchParams();
+  }
+}
+
+/**
+ * Remembers this browser's values of `names` in localStorage under `key`, and
+ * puts them back when the dashboard is opened without any of `unless` in its
+ * link (by default, any of `names`): a link that carries its own search wins.
+ * Restores once per page load, in `names` order, and never an empty value.
+ * Safe in an afterRender that runs twice per refresh: a second call replaces
+ * the first one's listeners.
+ *
+ * @returns a function that stops saving
+ */
+export function rememberVariables(page: Page, key: string, names: string[], unless: string[] = names): () => void {
+  const win = pageWindow(page);
+  const vars = scene(page)?.state.$variables;
+  if (!win || !vars) return () => {};
+  const state = (habits(win).remember[key] ??= {});
+  state.stop?.();
+  if (!state.restored) {
+    state.restored = true;
+    const link = openedWith(win);
+    if (!unless.some((name) => link.has(`var-${name}`))) {
+      let saved: Record<string, unknown> | null = null;
+      try {
+        saved = JSON.parse(win.localStorage.getItem(key) ?? 'null');
+      } catch {
+        saved = null;
+      }
+      if (saved && typeof saved === 'object') setVariables(page, saved, names);
+    }
+  }
+  const save = () => {
+    const values = Object.fromEntries(names.filter((n) => vars.getByName(n)).map((n) => [n, variableValue(page, n)]));
+    try {
+      win.localStorage.setItem(key, JSON.stringify(values));
+    } catch {
+      // A private window or blocked storage simply does not remember.
+    }
+  };
+  const subs = names.flatMap((n) => vars.getByName(n)?.subscribeToState?.(save) ?? []);
+  const stop = () => {
+    for (const sub of subs) sub.unsubscribe();
+    if (state.stop === stop) state.stop = undefined;
+  };
+  state.stop = stop;
+  return stop;
+}
+
+const SUBMIT = '[data-testid="data-testid panel button-submit"]';
+
+/**
+ * Makes Enter in a form panel's text box press that panel's own Submit, which
+ * Business Forms does not do. One listener per page, however many panels ask.
+ * Only an `<input>`, with no modifier, and never a disabled button: a textarea
+ * keeps Enter for new lines and a select for choosing.
+ */
+export function submitOnEnter(page: Page): void {
+  const win = pageWindow(page);
+  if (!win) return;
+  const state = habits(win);
+  if (state.enter) return;
+  state.enter = true;
+  win.document.addEventListener(
+    'keydown',
+    (event) => {
+      if (event.key !== 'Enter' || event.shiftKey || event.ctrlKey || event.metaKey || event.altKey) return;
+      const target = event.target as Element | null;
+      if (!target || target.localName !== 'input') return;
+      const submit = target.closest('[data-viz-panel-key]')?.querySelector<HTMLButtonElement>(SUBMIT);
+      if (!submit || submit.disabled) return;
+      event.preventDefault();
+      submit.click();
+    },
+    true,
+  );
 }
