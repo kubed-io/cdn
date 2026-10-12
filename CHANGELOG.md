@@ -21,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `kd.js`: `rememberVariables` keeps a dashboard's search in the browser and restores it when a link carries none.
 - `kd.js`: `submitOnEnter` makes Enter in a form panel press its Submit button.
 
+### Changed
+
+- `n8n.js` loads `@n8n/chat` 1.41.5 (was 1.41.3).
+
 ## [0.0.8] - 2026-10-10
 
 ### Added
