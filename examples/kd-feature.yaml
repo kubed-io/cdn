@@ -1,0 +1,95 @@
+# One film at length with <kd-feature>: poster, title and year, facts, genres, plot, two actions
+# and the director and cast as a grid of faces. The query names the film by the `imdb` variable;
+# afterRender maps the one row onto the feature. "Find Now" is a button: its `action` event sets
+# the `pattern` variable and focuses the results panel, and "IMDb" is a plain link.
+# Needs the hidden `assets` constant and a text variable `imdb`. IMDb's caching GraphQL endpoint
+# takes no key.
+kind: Panel
+spec:
+  title: ''
+  transparent: true
+  data:
+    kind: QueryGroup
+    spec:
+      queries:
+      - kind: PanelQuery
+        spec:
+          refId: A
+          query:
+            kind: DataQuery
+            group: yesoreyeram-infinity-datasource
+            datasource:
+              name: imdb
+            spec:
+              type: json
+              source: url
+              parser: backend
+              format: table
+              url: https://caching.graphql.imdb.com/
+              url_options:
+                method: POST
+                body_type: raw
+                body_content_type: application/json
+                headers:
+                - key: x-imdb-client-name
+                  value: imdb-web-next
+                data: >-
+                  {"query":"query { title(id: \"${imdb}\") { id titleText { text } titleType { text }
+                  releaseYear { year } ratingsSummary { aggregateRating voteCount } runtime { seconds }
+                  genres { genres { text } } plot { plotText { plainText } } primaryImage { url }
+                  credits(first: 10, filter: { categories: [\"director\",\"actor\",\"actress\"] }) {
+                  edges { node { category { text } name { nameText { text } primaryImage { url } } } }
+                  } } }"}
+              # the whole title as one JSON column, so afterRender gets it intact. Infinity's JSONata
+              # only makes a row through $append, and serialises $ there as a one-item array.
+              root_selector: '$append([], data.title.{"doc": $string($)})'
+              columns:
+              - selector: doc
+                text: doc
+                type: string
+  vizConfig:
+    kind: marcusolsson-dynamictext-panel
+    spec:
+      options:
+        renderMode: allRows
+        content: <kd-feature empty="Pick a title."></kd-feature>
+        afterRender: |-
+          import(context.grafana.replaceVariables('${assets}') + '/kd.js').then((m) => {
+            const t = [].concat(JSON.parse(context.data[0]?.doc || 'null'))[0];
+            const fit = (url, px) => url && url.replace(/(\._V1_[^/]*)?\.jpg$/, `._V1_UX${px}_.jpg`);
+            const votes = (n) => (n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : Math.round(n / 1e3) + 'K') + ' votes';
+            const film = t && {
+              title: t.titleText.text,
+              sub: String(t.releaseYear?.year ?? ''),
+              image: fit(t.primaryImage?.url, 440),
+              facts: [
+                t.ratingsSummary?.aggregateRating && { text: `IMDb ${t.ratingsSummary.aggregateRating}`, tone: 'warning' },
+                t.ratingsSummary?.voteCount && votes(t.ratingsSummary.voteCount),
+                t.titleType?.text,
+                t.runtime?.seconds && m.duration(t.runtime.seconds),
+              ],
+              tags: (t.genres?.genres ?? []).map((g) => g.text),
+              text: t.plot?.plotText?.plainText,
+              actions: [
+                { id: 'find', label: '🔎 Find Now', tone: 'primary', title: 'Search torrents for this title' },
+                { label: 'IMDb ↗', href: `https://www.imdb.com/title/${t.id}/` },
+              ],
+              people: (t.credits?.edges ?? []).map(({ node }) => ({
+                title: node.name.nameText.text,
+                sub: node.category.text,
+                image: fit(node.name.primaryImage?.url, 200),
+              })),
+            };
+            const [el] = m.feed(context, { 'kd-feature': { data: film } });
+            // afterRender runs twice per refresh and unchanged HTML keeps the element: listen once,
+            // and read the film off the element when clicked.
+            if (el && !el.dataset.wired) {
+              el.dataset.wired = 'yes';
+              el.addEventListener('action', (e) => {
+                const f = el.data;
+                if (e.detail.id !== 'find' || !f) return;
+                m.setVariable(context.element, 'pattern', `${f.title} ${f.sub}`.trim());
+                m.focusPanel(context.element, 'panel-25');
+              });
+            }
+          });
