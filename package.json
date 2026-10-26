@@ -59,7 +59,7 @@
     "marked": "18.1.0"
   },
   "peerDependencies": {
-    "@n8n/chat": "1.41.5"
+    "@n8n/chat": "1.43.3"
   },
   "peerDependenciesMeta": {
     "@n8n/chat": {
