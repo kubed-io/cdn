@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.9] - 2026-11-16
+
 ### Added
 
 - `kd.js`: `<kd-shelf>` shows picture cards, posters or faces, in one sideways-scrolling row or a wrapping grid.
