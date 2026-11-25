@@ -14,7 +14,8 @@
 | `dist/kd.js` | 🎨 the core: the theme layer, the Grafana page helpers, and every generic element |
 | `dist/kd.css` | text, links, tables, badges, code, cards, and column/tile/part layouts for plain `.kd` markup |
 | `dist/openapi.js` | 📜 `<kd-schema>`: any OpenAPI v3 or JSON Schema, kubectl-explain style, rendered lazily |
-| `dist/k8s.js` | ☸️ Kubernetes objects mapped onto the core elements: `<kd-k8s-object>`, `<kd-k8s-ref>`, `<kd-k8s-events>` |
+| `dist/k8s.js` | ☸️ Kubernetes objects mapped onto the core elements: `<kd-k8s-object>`, `<kd-k8s-ref>`, `<kd-k8s-events>`; `registerViewHelpers` for the k8s-* views |
+| `dist/k8s.css` | the k8s-* views' string-HTML markup under `.kd.k8s-view`: sheets, tables, steps, CSS tabs, YAML |
 | `dist/n8n.js` | 💬 `mount(config)`: the n8n agent chat tile for app dashboards |
 | `dist/github.js` | 🐙 GitHub glue: a git tree for `<kd-files>`, blob/raw/README URLs, code-server activity and Claude edits per file |
 
@@ -67,6 +68,8 @@ A release is then a one-line change per dashboard. Move every dashboard together
 | `--kd-link` | `colors.text.link` |
 | `--kd-border`, `--kd-border-strong` | `colors.border.weak`, `.medium` |
 | `--kd-primary`, `--kd-success`, `--kd-warning`, `--kd-error`, `--kd-info` | `colors.<name>.main` |
+| `--kd-accent` | `visualization.getColorByName('purple')` |
+| `--kd-contrast` | `colors.primary.contrastText`, text on a toned fill |
 | `--kd-font`, `--kd-font-mono` | `typography.fontFamily`, `.fontFamilyMonospace` |
 | `--kd-radius` | `shape.radius.default` |
 | `--kd-space` | `spacing(1)` |
@@ -83,6 +86,8 @@ afterRender:    import(context.grafana.replaceVariables("${assets}") + "/kd.js")
 ```
 
 `afterRender` runs on every re-render and `applyTheme` is idempotent, so switching Grafana's theme restyles the panel. Code with no `context.grafana.theme` calls `followTheme(element)` instead: it reads the live theme from Grafana's runtime and follows a theme switch.
+
+The k8s-* views are string HTML written by Infinity jq and Handlebars helpers. Their panels wrap it in `<div class="kd k8s-view">`, load `${assets}/k8s.css` instead of kd.css, theme the root with `feed(context)` in `afterRender`, and register their helpers with `return import(...'/k8s.js').then((k8s) => k8s.registerViewHelpers(context))`: Business Text waits for a promise the helpers code returns.
 
 Every panel imports what it needs itself. The browser loads a URL once per page however many panels import it, and an element defined by one panel works in all of them.
 
