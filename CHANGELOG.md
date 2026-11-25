@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.0.10] - 2026-11-25
+
 ### Added
 
 - `k8s.css` styles the k8s-* views' markup under `.kd.k8s-view`, themed from the `--kd-*` properties.
