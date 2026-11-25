@@ -14,6 +14,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `k8s.css` styles the k8s-* views' markup under `.kd.k8s-view`, themed from the `--kd-*` properties.
+- `k8s.js`: `registerViewHelpers(context)` registers the views' events and Events-tab Handlebars helpers.
+- Theme properties `--kd-accent` (Grafana's purple) and `--kd-contrast` (text on a toned fill).
+
 ## [0.0.9] - 2026-11-16
 
 ### Added

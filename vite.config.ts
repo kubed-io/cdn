@@ -13,6 +13,7 @@ if (!/^\d+\.\d+\.\d+$/.test(chat ?? '')) throw new Error(`package.json: @n8n/cha
 // They are not imported by any module, so they are emitted as they are.
 const STYLESHEETS: Record<string, string> = {
   'kd.css': 'src/kd/kd.css',
+  'k8s.css': 'src/k8s/k8s.css',
 };
 
 function stylesheets(): Plugin {
