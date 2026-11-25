@@ -20,6 +20,8 @@ const CONTRACT = {
   '--kd-warning': '#warning',
   '--kd-error': '#error',
   '--kd-info': '#info',
+  '--kd-accent': '#purple',
+  '--kd-contrast': '#contrast',
   '--kd-font': 'Inter, sans-serif',
   '--kd-font-mono': 'Roboto Mono, monospace',
   '--kd-radius': '6px',
@@ -34,7 +36,7 @@ function fakeTheme({ isDark = true } = {}): any {
       background: { primary: '#bg', secondary: '#bg2', canvas: '#canvas' },
       text: { primary: '#text', secondary: '#text2', disabled: '#dim', link: '#link' },
       border: { weak: '#weak', medium: '#medium', strong: '#strong' },
-      primary: { main: '#primary' },
+      primary: { main: '#primary', contrastText: '#contrast' },
       success: { main: '#success' },
       warning: { main: '#warning' },
       error: { main: '#error' },
@@ -42,6 +44,7 @@ function fakeTheme({ isDark = true } = {}): any {
     },
     typography: { fontFamily: 'Inter, sans-serif', fontFamilyMonospace: 'Roboto Mono, monospace' },
     shape: { radius: { default: '6px' } },
+    visualization: { getColorByName: (name: string) => `#${name}` },
     spacing: (n = 1) => `${n * 8}px`,
   };
 }

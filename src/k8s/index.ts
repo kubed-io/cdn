@@ -60,6 +60,7 @@ export {
   type EventLabels,
   type EventRow,
 } from './events';
+export { registerViewHelpers, type ViewContext } from './view';
 export { KdK8sEvents } from './elements/events';
 export { KdK8sObject } from './elements/object';
 export { KdK8sRef } from './elements/ref';
